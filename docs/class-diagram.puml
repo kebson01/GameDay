@@ -1,0 +1,230 @@
+@startuml GameDay Class Diagram
+
+!theme blueprint
+skinparam backgroundColor #fafafa
+skinparam classBackgroundColor #fff
+skinparam classBorderColor #333
+
+title GameDay - Class/Module Diagram
+
+' ====================
+' DATA MODELS
+' ====================
+package "Data Models" #e3f2fd {
+    
+    class User {
+        +id: string
+        +email: string
+        +full_name: string
+        +favorite_teams: string[]
+        +school_id: string
+        +created_date: Date
+    }
+    
+    class Game {
+        +id: string
+        +home_team: string
+        +away_team: string
+        +home_score: number
+        +away_score: number
+        +status: GameStatus
+        +game_date: string
+        +game_time: string
+        +venue: string
+        +tv_network: string
+        +home_logo: string
+        +away_logo: string
+    }
+    
+    enum GameStatus {
+        upcoming
+        live
+        final
+    }
+    
+    class Tailgate {
+        +id: string
+        +name: string
+        +host_id: string
+        +game_date: Date
+        +start_time: string
+        +location: Location
+        +is_public: boolean
+        +rsvp_count: number
+        +photo_url: string
+    }
+    
+    class Location {
+        +lat: number
+        +lng: number
+        +lot_name: string
+    }
+    
+    class TailgateGroup {
+        +id: string
+        +name: string
+        +invite_code: string
+        +members: Member[]
+        +color: string
+        +avatar_emoji: string
+    }
+    
+    class Member {
+        +email: string
+        +name: string
+        +location_sharing: boolean
+        +lat: number
+        +lng: number
+    }
+    
+    class Team {
+        +id: string
+        +name: string
+        +abbreviation: string
+        +logo: string
+        +conference: string
+    }
+    
+    Game --> GameStatus
+    Tailgate --> Location
+    TailgateGroup --> Member
+}
+
+' ====================
+' SERVICES
+' ====================
+package "Services (lib/)" #fff3e0 {
+    
+    class sportsApi <<service>> {
+        +fetchScoreboard(): Game[]
+        +fetchTeamSchedule(teamId): Game[]
+        +fetchRankings(): Team[]
+        +fetchNews(): Article[]
+        +fetchSeasonCalendar(): Week[]
+        +getCurrentSeason(): number
+    }
+    
+    class auth <<service>> {
+        +me(): User
+        +login(email, password): User
+        +logout(): void
+        +register(data): User
+        +updateMe(data): User
+    }
+    
+    class dataService <<service>> {
+        +Tailgate: EntityCRUD
+        +TailgateGroup: EntityCRUD
+        +UserLocation: EntityCRUD
+        +ParkedCar: EntityCRUD
+    }
+    
+    class localStorage <<service>> {
+        +getItem(key): any
+        +setItem(key, value): void
+        +removeItem(key): void
+    }
+    
+    class config <<singleton>> {
+        +appName: string
+        +espn.baseUrl: string
+        +googleMaps.apiKey: string
+        +settings.refreshInterval: number
+    }
+    
+    sportsApi ..> Game : returns
+    sportsApi ..> Team : returns
+    auth ..> User : returns
+    dataService ..> Tailgate : manages
+    dataService ..> TailgateGroup : manages
+}
+
+' ====================
+' PAGES
+' ====================
+package "Pages" #e8f5e9 {
+    
+    class Home <<page>> {
+        -user: User
+        -games: Game[]
+        -tailgates: Tailgate[]
+        +render(): JSX
+    }
+    
+    class GameDay <<page>> {
+        -viewMode: string
+        -games: Game[]
+        -statusFilter: string
+        +render(): JSX
+    }
+    
+    class Schedule <<page>> {
+        -seasonYear: number
+        -selectedWeek: Week
+        -games: Game[]
+        +render(): JSX
+    }
+    
+    class MyTeams <<page>> {
+        -user: User
+        -favoriteTeams: Team[]
+        +addTeam(team): void
+        +removeTeam(team): void
+        +render(): JSX
+    }
+    
+    class FindFriends <<page>> {
+        -groups: TailgateGroup[]
+        -userLocation: Location
+        +shareLocation(): void
+        +render(): JSX
+    }
+    
+    Home ..> sportsApi : uses
+    GameDay ..> sportsApi : uses
+    Schedule ..> sportsApi : uses
+    MyTeams ..> auth : uses
+    FindFriends ..> dataService : uses
+}
+
+' ====================
+' COMPONENTS
+' ====================
+package "Components" #fce4ec {
+    
+    class GameCard <<component>> {
+        +game: Game
+        +onTeamClick(): void
+        +render(): JSX
+    }
+    
+    class TeamDetailView <<component>> {
+        +team: Team
+        +isOpen: boolean
+        +onClose(): void
+        +render(): JSX
+    }
+    
+    class GameDayAssistant <<component>> {
+        -isOpen: boolean
+        -messages: Message[]
+        +handleSend(): void
+        +render(): JSX
+    }
+    
+    class GoogleMapView <<component>> {
+        +center: Location
+        +markers: Marker[]
+        +onMarkerClick(): void
+        +render(): JSX
+    }
+    
+    GameCard ..> Game : displays
+    TeamDetailView ..> Team : displays
+    GoogleMapView ..> Location : uses
+}
+
+@enduml
+
+
+

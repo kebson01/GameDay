@@ -1,0 +1,127 @@
+@startuml GameDay Architecture
+
+!theme blueprint
+skinparam backgroundColor #1a1a2e
+skinparam defaultFontColor #eee
+skinparam packageBackgroundColor #16213e
+skinparam componentBackgroundColor #0f3460
+skinparam arrowColor #e94560
+
+title GameDay PWA - Architecture Diagram
+
+' ====================
+' EXTERNAL SERVICES
+' ====================
+cloud "External APIs" as external {
+    [ESPN API] as espn #orange
+    [Google Maps] as gmaps #green
+    [Browser APIs] as browser #purple
+}
+
+' ====================
+' PRESENTATION LAYER
+' ====================
+package "Pages" as pages #16213e {
+    [Home] as home
+    [GameDay] as gameday
+    [Schedule] as schedule
+    [MyTeams] as myteams
+    [FindFriends] as friends
+    [CampusMap] as campus
+    [Settings] as settings
+}
+
+' ====================
+' COMPONENTS
+' ====================
+package "Components" as components #0f3460 {
+    package "Common" {
+        [GameCard]
+        [TailgateCard]
+        [SafetyButton]
+        [WeatherWidget]
+    }
+    
+    package "Teams" {
+        [TeamDetailView]
+        [TeamFeed]
+        [NewsFeed]
+    }
+    
+    package "Maps" {
+        [GoogleMapView]
+        [MapView]
+    }
+    
+    package "AI" {
+        [GameDayAssistant]
+    }
+    
+    package "Auth" {
+        [AuthModal]
+    }
+}
+
+' ====================
+' DATA LAYER
+' ====================
+package "Services (lib/)" as services #1a1a2e {
+    [sportsApi] as sportsapi
+    [auth] as authservice
+    [dataService] as dataservice
+    [localStorage] as localstorage
+    [config] as config
+}
+
+' ====================
+' STATE MANAGEMENT
+' ====================
+package "State" as state #e94560 {
+    [React Query] as rquery
+    [useState/useEffect] as hooks
+}
+
+' ====================
+' CONNECTIONS
+' ====================
+
+' Pages to Components
+home --> [GameCard]
+home --> [TailgateCard]
+home --> [WeatherWidget]
+gameday --> [GameCard]
+gameday --> [TeamDetailView]
+schedule --> [GameCard]
+schedule --> [TeamDetailView]
+myteams --> [TeamDetailView]
+myteams --> [NewsFeed]
+friends --> [GoogleMapView]
+campus --> [GoogleMapView]
+
+' All pages use common
+pages --> [SafetyButton]
+pages --> [GameDayAssistant]
+pages --> [AuthModal]
+
+' Components to State
+components --> rquery
+components --> hooks
+
+' State to Services
+rquery --> sportsapi
+rquery --> dataservice
+hooks --> authservice
+hooks --> localstorage
+
+' Services to External
+sportsapi --> espn : "HTTP GET"
+[GoogleMapView] --> gmaps : "Maps SDK"
+friends --> browser : "Geolocation"
+
+' Config
+services --> config : "env vars"
+
+@enduml
+
+
+
