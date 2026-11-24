@@ -119,7 +119,7 @@ export default function NotificationBell({ user }) {
                   key={notification.id}
                   className={`relative p-3 rounded-xl border transition-colors cursor-pointer ${
                     notification.read 
-                      ? 'bg-white border-slate-200' 
+                      ? 'bg-surface-container border-slate-200' 
                       : 'bg-orange-50 border-orange-200'
                   }`}
                   onClick={() => handleNotificationClick(notification)}

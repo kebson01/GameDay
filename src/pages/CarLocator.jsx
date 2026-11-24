@@ -143,7 +143,7 @@ export default function CarLocator() {
         </div>
         
         <div className="px-4 py-8">
-          <div className="bg-white rounded-3xl shadow-lg p-8 text-center">
+          <div className="bg-surface-container rounded-3xl shadow-lg p-8 text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <Car className="w-10 h-10 text-white" />
             </div>
@@ -189,7 +189,7 @@ export default function CarLocator() {
       <div className="px-4 py-4 space-y-4">
         {/* Current Saved Location */}
         {latestLocation && !showSaveForm && (
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="bg-surface-container rounded-2xl shadow-sm overflow-hidden">
             <div className="p-4 border-b border-slate-100">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -235,7 +235,7 @@ export default function CarLocator() {
 
         {/* Save New Location Form */}
         {showSaveForm && currentLocation && (
-          <div className="bg-white rounded-2xl shadow-sm p-4 space-y-4">
+          <div className="bg-surface-container rounded-2xl shadow-sm p-4 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-slate-900">Save Car Location</h3>
               <Button
@@ -315,7 +315,7 @@ export default function CarLocator() {
 
         {/* History */}
         {savedLocations.length > 1 && (
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="bg-surface-container rounded-2xl shadow-sm overflow-hidden">
             <div className="p-4 border-b border-slate-100">
               <h3 className="font-bold text-slate-900">Previous Locations</h3>
             </div>
@@ -346,7 +346,7 @@ export default function CarLocator() {
 
         {/* Empty State */}
         {!latestLocation && !showSaveForm && !locationsLoading && (
-          <div className="text-center py-12 bg-white rounded-2xl">
+          <div className="text-center py-12 bg-surface-container rounded-2xl">
             <Car className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <h3 className="font-bold text-slate-900 mb-2">No saved locations</h3>
             <p className="text-slate-500 text-sm">Tap the button above to save your car's location</p>

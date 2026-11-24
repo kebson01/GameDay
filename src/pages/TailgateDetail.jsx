@@ -225,7 +225,7 @@ export default function TailgateDetail() {
       {/* Content */}
       <div className="px-4 py-4 space-y-4 -mt-4">
         {/* Quick Info */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
@@ -265,7 +265,7 @@ export default function TailgateDetail() {
         
         {/* Description */}
         {tailgate.description && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
             <h3 className="font-bold text-slate-900 mb-2">About</h3>
             <p className="text-slate-600">{tailgate.description}</p>
           </div>
@@ -273,7 +273,7 @@ export default function TailgateDetail() {
         
         {/* Amenities */}
         {tailgate.amenities?.length > 0 && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
             <h3 className="font-bold text-slate-900 mb-3">What's There</h3>
             <div className="flex flex-wrap gap-2">
               {tailgate.amenities.map((amenity, idx) => (
@@ -286,7 +286,7 @@ export default function TailgateDetail() {
         )}
         
         {/* Location */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-surface-container rounded-2xl shadow-sm overflow-hidden">
           <div className="p-4">
             <h3 className="font-bold text-slate-900 mb-2">Location</h3>
             <div className="flex items-center gap-2 text-slate-600">
@@ -319,7 +319,7 @@ export default function TailgateDetail() {
         </div>
         
         {/* Checklist */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-slate-900">Supply Checklist</h3>
             {isHost && (

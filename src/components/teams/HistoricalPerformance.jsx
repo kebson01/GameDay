@@ -22,7 +22,7 @@ export default function HistoricalPerformance({ seasons, isLoading }) {
       </h3>
       
       {seasons.map((season, idx) => (
-        <div key={idx} className="bg-white rounded-2xl p-4 shadow-sm">
+        <div key={idx} className="bg-surface-container rounded-2xl p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h4 className="text-lg font-bold text-slate-900">{season.year} Season</h4>

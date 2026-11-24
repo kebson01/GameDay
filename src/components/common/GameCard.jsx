@@ -21,7 +21,7 @@ export default function GameCard({ game, schoolLogo, schoolName, compact = false
       <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-surface-container rounded-lg flex items-center justify-center">
               <span className="text-2xl">🏈</span>
             </div>
             <div>
@@ -40,9 +40,9 @@ export default function GameCard({ game, schoolLogo, schoolName, compact = false
   }
   
   return (
-    <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-slate-100">
+    <div className="bg-surface-container rounded-2xl shadow-lg overflow-hidden border border-slate-100">
       {/* Header */}
-      <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-4">
+      <div className="bg-gradient-to-r from-ink-900 to-ink-800 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {isLive && (
@@ -80,7 +80,7 @@ export default function GameCard({ game, schoolLogo, schoolName, compact = false
             </div>
             <p className="font-bold text-slate-900 text-center">{homeName || 'Home'}</p>
             {(isLive || isFinal) && (
-              <p className="text-3xl font-bold text-slate-900">{game?.home_score || 0}</p>
+              <p className="gd-score text-4xl text-slate-900">{game?.home_score || 0}</p>
             )}
           </div>
           
@@ -114,7 +114,7 @@ export default function GameCard({ game, schoolLogo, schoolName, compact = false
             </div>
             <p className="font-bold text-slate-900 text-center">{awayName || 'Away'}</p>
             {(isLive || isFinal) && (
-              <p className="text-3xl font-bold text-slate-900">{game?.away_score || 0}</p>
+              <p className="gd-score text-4xl text-slate-900">{game?.away_score || 0}</p>
             )}
           </div>
         </div>

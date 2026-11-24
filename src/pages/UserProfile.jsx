@@ -79,7 +79,7 @@ export default function UserProfile() {
   if (!user) {
     return (
       <div className="gd-page flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl shadow-lg p-8 text-center max-w-sm w-full">
+        <div className="bg-surface-container rounded-3xl shadow-lg p-8 text-center max-w-sm w-full">
           <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
             <LogIn className="w-10 h-10 text-white" />
           </div>
@@ -184,7 +184,7 @@ export default function UserProfile() {
             <div className="space-y-3">
               {favoriteTeams.length > 0 ? (
                 favoriteTeams.map((team, idx) => (
-                  <div key={idx} className="bg-white rounded-2xl p-4 shadow-sm">
+                  <div key={idx} className="bg-surface-container rounded-2xl p-4 shadow-sm">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Star className="w-5 h-5 text-orange-500 fill-orange-500" />
@@ -201,7 +201,7 @@ export default function UserProfile() {
                   </div>
                 ))
               ) : (
-                <div className="text-center py-12 bg-white rounded-2xl">
+                <div className="text-center py-12 bg-surface-container rounded-2xl">
                   <Star className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                   <p className="text-slate-500">No teams followed yet</p>
                   <Button 
@@ -220,7 +220,7 @@ export default function UserProfile() {
           <TabsContent value="predictions">
             <div className="space-y-4">
               {/* Prediction Stats */}
-              <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <Award className="w-5 h-5 text-orange-500" />
                   <h3 className="font-bold text-slate-900">Prediction Stats</h3>
@@ -242,7 +242,7 @@ export default function UserProfile() {
               </div>
 
               {predictions.length === 0 && (
-                <div className="text-center py-12 bg-white rounded-2xl">
+                <div className="text-center py-12 bg-surface-container rounded-2xl">
                   <Target className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                   <p className="text-slate-500">No predictions yet</p>
                 </div>
@@ -257,7 +257,7 @@ export default function UserProfile() {
                 posts.map((post) => (
                   <div 
                     key={post.id} 
-                    className="bg-white rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                    className="bg-surface-container rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
                     onClick={() => navigate(createPageUrl('TeamPage') + `?team=${encodeURIComponent(post.team_name)}`)}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -281,7 +281,7 @@ export default function UserProfile() {
                   </div>
                 ))
               ) : (
-                <div className="text-center py-12 bg-white rounded-2xl">
+                <div className="text-center py-12 bg-surface-container rounded-2xl">
                   <MessageCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                   <p className="text-slate-500">No activity yet</p>
                 </div>

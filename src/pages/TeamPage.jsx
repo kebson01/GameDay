@@ -153,7 +153,7 @@ export default function TeamPage() {
 
       {/* Stadium Info */}
       {school?.stadium_name && (
-        <div className="mx-4 -mt-6 bg-white rounded-2xl p-4 shadow-lg mb-4">
+        <div className="mx-4 -mt-6 bg-surface-container rounded-2xl p-4 shadow-lg mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
               <MapPin className="w-5 h-5 text-orange-600" />
@@ -236,7 +236,7 @@ export default function TeamPage() {
             )}
 
             {teamGames.length === 0 && (
-              <div className="text-center py-12 bg-white rounded-2xl">
+              <div className="text-center py-12 bg-surface-container rounded-2xl">
                 <Trophy className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-500">No games scheduled</p>
               </div>
@@ -258,7 +258,7 @@ export default function TeamPage() {
             {user ? (
               <TeamFeed teamName={teamName} user={user} />
             ) : (
-              <div className="text-center py-12 bg-white rounded-2xl">
+              <div className="text-center py-12 bg-surface-container rounded-2xl">
                 <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-500 mb-3">Sign in to join the conversation</p>
                 <Button 

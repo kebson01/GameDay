@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 export default function HeadToHeadDisplay({ data, team1, team2, isLoading }) {
   if (isLoading) {
     return (
-      <div className="bg-white rounded-2xl p-4 shadow-sm">
+      <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
         <div className="animate-pulse space-y-3">
           <div className="h-6 bg-slate-200 rounded w-1/2" />
           <div className="h-20 bg-slate-200 rounded" />
@@ -68,7 +68,7 @@ export default function HeadToHeadDisplay({ data, team1, team2, isLoading }) {
       )}
 
       {recent_meetings && recent_meetings.length > 0 && (
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
           <h4 className="font-bold text-slate-900 mb-3">Recent Meetings</h4>
           <div className="space-y-3">
             {recent_meetings.map((meeting, idx) => (
@@ -86,7 +86,7 @@ export default function HeadToHeadDisplay({ data, team1, team2, isLoading }) {
       )}
 
       {largest_victory && (
-        <div className="bg-slate-900 text-white rounded-2xl p-4">
+        <div className="bg-ink-900 text-white rounded-2xl p-4">
           <h4 className="font-bold mb-2">Largest Victory</h4>
           <p className="text-2xl font-bold text-orange-400">{largest_victory.team}</p>
           <p className="text-lg">{largest_victory.score}</p>

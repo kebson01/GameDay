@@ -7,7 +7,7 @@ export default function LiveGameStats({ data, homeTeam, awayTeam, homeLogo, away
     return (
       <div className="space-y-3">
         {[1, 2, 3].map(i => (
-          <div key={i} className="bg-white rounded-xl p-4 animate-pulse shadow-sm">
+          <div key={i} className="bg-surface-container rounded-xl p-4 animate-pulse shadow-sm">
             <div className="h-6 bg-slate-200 rounded w-1/3 mb-4" />
             <div className="space-y-3">
               <div className="h-4 bg-slate-200 rounded w-full" />
@@ -22,7 +22,7 @@ export default function LiveGameStats({ data, homeTeam, awayTeam, homeLogo, away
 
   if (!data || (!data.comparison?.length && !data.home?.players && !data.away?.players)) {
     return (
-      <div className="text-center py-12 bg-white rounded-2xl shadow-sm">
+      <div className="text-center py-12 bg-surface-container rounded-2xl shadow-sm">
         <BarChart3 className="w-16 h-16 text-slate-200 mx-auto mb-4" />
         <p className="text-slate-500 font-medium">No stats available yet</p>
         <p className="text-slate-400 text-sm mt-1">Stats will appear once the game starts</p>
@@ -63,7 +63,7 @@ export default function LiveGameStats({ data, homeTeam, awayTeam, homeLogo, away
   // Player stat card
   const PlayerCard = ({ player, category }) => (
     <div className="flex items-center gap-3 py-2.5 border-b border-slate-100 last:border-0">
-      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center text-white text-xs font-bold">
+      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-ink-600 to-ink-800 flex items-center justify-center text-white text-xs font-bold">
         {player.position || '#'}
       </div>
       <div className="flex-1 min-w-0">
@@ -76,7 +76,7 @@ export default function LiveGameStats({ data, homeTeam, awayTeam, homeLogo, away
   return (
     <div className="space-y-4">
       {/* Team Headers */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm">
+      <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             {homeLogo ? (
@@ -104,7 +104,7 @@ export default function LiveGameStats({ data, homeTeam, awayTeam, homeLogo, away
 
       {/* Team Stats Comparison */}
       {comparison && comparison.length > 0 && (
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
           <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-orange-500" />
             Team Statistics
@@ -125,7 +125,7 @@ export default function LiveGameStats({ data, homeTeam, awayTeam, homeLogo, away
 
       {/* Player Stats - Home Team */}
       {home?.players && Object.keys(home.players).length > 0 && (
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             {homeLogo && <img src={homeLogo} alt="" className="w-6 h-6" />}
             <h3 className="font-bold text-slate-900">{home.team || homeTeam} Players</h3>
@@ -162,7 +162,7 @@ export default function LiveGameStats({ data, homeTeam, awayTeam, homeLogo, away
 
       {/* Player Stats - Away Team */}
       {away?.players && Object.keys(away.players).length > 0 && (
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             {awayLogo && <img src={awayLogo} alt="" className="w-6 h-6" />}
             <h3 className="font-bold text-slate-900">{away.team || awayTeam} Players</h3>

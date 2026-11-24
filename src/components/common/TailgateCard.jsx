@@ -36,7 +36,7 @@ export default function TailgateCard({
       <div 
         onClick={onClick}
         className={cn(
-          "flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-100 shadow-sm cursor-pointer hover:shadow-md transition-all",
+          "flex items-center gap-3 p-3 bg-surface-container rounded-xl border border-slate-100 shadow-sm cursor-pointer hover:shadow-md transition-all",
           className
         )}
       >
@@ -58,7 +58,7 @@ export default function TailgateCard({
     <div 
       onClick={onClick}
       className={cn(
-        "bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden cursor-pointer hover:shadow-lg transition-all group",
+        "bg-surface-container rounded-2xl border border-slate-100 shadow-sm overflow-hidden cursor-pointer hover:shadow-lg transition-all group",
         className
       )}
     >

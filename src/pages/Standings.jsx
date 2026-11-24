@@ -78,7 +78,7 @@ export default function Standings() {
       </div>
       
       {/* Conference Selector */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 overflow-x-auto">
+      <div className="bg-surface-container border-b border-gray-200 px-4 py-3 overflow-x-auto">
         <div className="flex gap-2">
           {CONFERENCES.map(conf => (
             <Button
@@ -103,8 +103,8 @@ export default function Standings() {
         ) : (
           <div className="space-y-6">
             {conferences.map(conf => (
-              <div key={conf} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <div className="bg-gradient-to-r from-slate-800 to-slate-700 text-white px-4 py-3 flex items-center justify-between">
+              <div key={conf} className="bg-surface-container rounded-2xl shadow-sm overflow-hidden">
+                <div className="bg-gradient-to-r from-ink-800 to-ink-700 text-white px-4 py-3 flex items-center justify-between">
                   <h2 className="font-bold text-lg">{conf}</h2>
                   <Trophy className="w-5 h-5 text-yellow-400" />
                 </div>

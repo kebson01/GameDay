@@ -294,7 +294,7 @@ export default function FindFriends() {
                 >
                   <div className={`relative p-0.5 rounded-full ${isActive ? 'bg-gradient-to-tr from-yellow-400 via-red-500 to-pink-500' : 'bg-gray-200'}`}>
                     <div 
-                      className="w-16 h-16 rounded-full flex items-center justify-center text-2xl bg-white p-0.5"
+                      className="w-16 h-16 rounded-full flex items-center justify-center text-2xl bg-surface-container p-0.5"
                     >
                       <div
                         className="w-full h-full rounded-full flex items-center justify-center"
@@ -303,7 +303,7 @@ export default function FindFriends() {
                         {group.avatar_emoji || '🏈'}
                       </div>
                     </div>
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-bold text-white">
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-surface-container flex items-center justify-center text-[10px] font-bold text-white">
                       {group.members?.filter(m => m.location_sharing)?.length || 0}
                     </div>
                   </div>
@@ -330,7 +330,7 @@ export default function FindFriends() {
           
           {/* Invite Code */}
           {activeGroup.invite_code && (
-            <div className="mt-4 bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+            <div className="mt-4 bg-surface-container rounded-xl p-4 shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <p className="text-sm text-slate-500">Invite Code</p>
@@ -379,7 +379,7 @@ export default function FindFriends() {
                     >
                       {initials}
                     </div>
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white" />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-surface-container" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold truncate">{friend?.email?.split('@')[0] || 'Friend'}</p>

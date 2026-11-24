@@ -56,7 +56,7 @@ export default function TrendingTopics({ posts }) {
           <Badge 
             key={idx} 
             variant="outline"
-            className="bg-white/80 backdrop-blur hover:bg-white transition-colors cursor-pointer group"
+            className="bg-white/80 backdrop-blur hover:bg-surface-container transition-colors cursor-pointer group"
           >
             <div className="flex items-center gap-2">
               <span className="font-semibold text-orange-600 capitalize">

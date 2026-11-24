@@ -147,7 +147,7 @@ export default function DiscoverTeams() {
     });
 
     return (
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-surface-container rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-4">
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-3 flex-1">
@@ -335,7 +335,7 @@ export default function DiscoverTeams() {
       </div>
 
       {/* Conference Filter */}
-      <div className="px-4 py-3 bg-white border-b border-gray-200 overflow-x-auto sticky top-[160px] z-10">
+      <div className="px-4 py-3 bg-surface-container border-b border-gray-200 overflow-x-auto sticky top-[160px] z-10">
         <div className="flex gap-2">
           {conferences.map(conf => (
             <Badge
@@ -378,7 +378,7 @@ export default function DiscoverTeams() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 bg-white rounded-2xl">
+          <div className="text-center py-12 bg-surface-container rounded-2xl">
             <Search className="w-12 h-12 text-slate-300 mx-auto mb-3" />
             <p className="text-slate-600 mb-2">No teams found</p>
             <p className="text-sm text-slate-500">Try adjusting your search or filters</p>

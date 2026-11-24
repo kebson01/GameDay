@@ -167,7 +167,7 @@ export default function CreateTailgate() {
       {/* Form */}
       <div className="px-4 py-4 space-y-6">
         {/* Photo */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
           <Label className="text-sm font-medium mb-2 block">Cover Photo</Label>
           <div className="border-2 border-dashed border-slate-200 rounded-xl overflow-hidden">
             {photoFile ? (
@@ -202,7 +202,7 @@ export default function CreateTailgate() {
         </div>
         
         {/* Basic Info */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm space-y-4">
           <h3 className="font-bold text-slate-900">Basic Info</h3>
           
           <div>
@@ -246,7 +246,7 @@ export default function CreateTailgate() {
         </div>
         
         {/* Date & Time */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm space-y-4">
           <h3 className="font-bold text-slate-900 flex items-center gap-2">
             <Clock className="w-5 h-5 text-green-500" />
             Date & Time
@@ -288,7 +288,7 @@ export default function CreateTailgate() {
         </div>
         
         {/* Location */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm space-y-4">
           <h3 className="font-bold text-slate-900 flex items-center gap-2">
             <MapPin className="w-5 h-5 text-green-500" />
             Location
@@ -336,7 +336,7 @@ export default function CreateTailgate() {
         </div>
         
         {/* Amenities */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm space-y-4">
           <h3 className="font-bold text-slate-900">What You're Bringing</h3>
           
           <div className="flex flex-wrap gap-2">
@@ -358,7 +358,7 @@ export default function CreateTailgate() {
         </div>
         
         {/* Capacity & Privacy */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm space-y-4">
           <h3 className="font-bold text-slate-900 flex items-center gap-2">
             <Users className="w-5 h-5 text-green-500" />
             Capacity & Privacy

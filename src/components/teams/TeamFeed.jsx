@@ -219,7 +219,7 @@ export default function TeamFeed({ teamName, user }) {
 
       {/* Create Post */}
       {user && (
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
           {!showNewPost ? (
             <button
               onClick={() => setShowNewPost(true)}
@@ -326,7 +326,7 @@ export default function TeamFeed({ teamName, user }) {
 
       {/* Posts Feed */}
       {posts.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-2xl">
+        <div className="text-center py-12 bg-surface-container rounded-2xl">
           <Sparkles className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <p className="text-slate-500 mb-2">No posts yet</p>
           <p className="text-sm text-slate-400">Be the first to start a conversation!</p>
@@ -337,7 +337,7 @@ export default function TeamFeed({ teamName, user }) {
           const hasLiked = post.likes?.includes(user?.email);
           
           return (
-            <div key={post.id} className="bg-white rounded-2xl p-4 shadow-sm">
+            <div key={post.id} className="bg-surface-container rounded-2xl p-4 shadow-sm">
               {/* Post Header */}
               <div className="flex items-start justify-between mb-3">
                 <div 
@@ -384,7 +384,7 @@ export default function TeamFeed({ teamName, user }) {
 
               {/* Video Highlight */}
               {post.video_url && (
-                <div className="mb-3 relative group rounded-xl overflow-hidden bg-slate-900">
+                <div className="mb-3 relative group rounded-xl overflow-hidden bg-ink-900">
                   <video 
                     src={post.video_url}
                     controls

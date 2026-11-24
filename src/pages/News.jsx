@@ -90,7 +90,7 @@ export default function News() {
       <div className="px-4 py-4 space-y-4">
         {/* Top 5 Rankings Quick View */}
         {rankings.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm p-4">
+          <div className="bg-surface-container rounded-2xl shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-bold text-slate-900 flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-orange-500" />
@@ -136,7 +136,7 @@ export default function News() {
           {newsLoading ? (
             <div className="space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="bg-white rounded-2xl p-4 shadow-sm">
+                <div key={i} className="bg-surface-container rounded-2xl p-4 shadow-sm">
                   <Skeleton className="h-40 w-full rounded-xl mb-3" />
                   <Skeleton className="h-5 w-3/4 mb-2" />
                   <Skeleton className="h-4 w-full mb-1" />
@@ -152,7 +152,7 @@ export default function News() {
                   href={article.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                  className="block bg-surface-container rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow"
                 >
                   {article.image && (
                     <div className="relative h-48">
@@ -191,7 +191,7 @@ export default function News() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-white rounded-2xl">
+            <div className="text-center py-12 bg-surface-container rounded-2xl">
               <Newspaper className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <p className="text-slate-600">
                 {searchQuery ? 'No articles match your search' : 'No news available'}

@@ -26,7 +26,7 @@ export default function FriendCard({
   if (compact) {
     return (
       <div className={cn(
-        "flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-100 shadow-sm",
+        "flex items-center gap-3 p-3 bg-surface-container rounded-xl border border-slate-100 shadow-sm",
         status === 'sos' && "border-red-500 bg-red-50",
         className
       )}>
@@ -35,7 +35,7 @@ export default function FriendCard({
             {initials}
           </div>
           <div className={cn(
-            "absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white",
+            "absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-surface-container",
             statusColors[status]
           )} />
         </div>
@@ -54,7 +54,7 @@ export default function FriendCard({
   
   return (
     <div className={cn(
-      "bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden",
+      "bg-surface-container rounded-2xl border border-slate-100 shadow-sm overflow-hidden",
       status === 'sos' && "border-red-500 ring-2 ring-red-200",
       className
     )}>
@@ -65,7 +65,7 @@ export default function FriendCard({
               {initials}
             </div>
             <div className={cn(
-              "absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white",
+              "absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-surface-container",
               statusColors[status]
             )} />
           </div>

@@ -195,7 +195,7 @@ export default function MyTeams() {
           {latestNewsLoading ? (
             <div className="space-y-3">
               {[1, 2, 3].map(i => (
-                <div key={i} className="animate-pulse bg-white h-20 rounded-xl" />
+                <div key={i} className="animate-pulse bg-surface-container h-20 rounded-xl" />
               ))}
             </div>
           ) : latestNews.length > 0 ? (
@@ -203,7 +203,7 @@ export default function MyTeams() {
               {latestNews.slice(0, 5).map((article, idx) => (
                 <button
                   key={article.id || idx}
-                  className="w-full bg-white rounded-xl p-3 shadow-sm text-left hover:shadow-md transition-shadow"
+                  className="w-full bg-surface-container rounded-xl p-3 shadow-sm text-left hover:shadow-md transition-shadow"
                   onClick={() => setViewingArticle(article)}
                 >
                   <div className="flex gap-3">
@@ -248,7 +248,7 @@ export default function MyTeams() {
               )}
             </div>
           ) : (
-            <div className="text-center py-8 bg-white rounded-xl">
+            <div className="text-center py-8 bg-surface-container rounded-xl">
               <Newspaper className="w-10 h-10 text-slate-300 mx-auto mb-2" />
               <p className="text-slate-500">No news available</p>
             </div>
@@ -258,7 +258,7 @@ export default function MyTeams() {
 
       {/* Favorite Teams */}
       <div className="px-4 py-4 space-y-4">
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-slate-900">Following ({favoriteTeams.length})</h2>
             <Button
@@ -379,7 +379,7 @@ export default function MyTeams() {
             </div>
             <div className="space-y-3">
               {liveGames.map((game, idx) => (
-                <div key={idx} className="bg-white rounded-xl shadow-sm p-4 border-l-4 border-red-500">
+                <div key={idx} className="bg-surface-container rounded-xl shadow-sm p-4 border-l-4 border-red-500">
                   <div className="flex items-center justify-between mb-2">
                     <Badge className="bg-red-500">LIVE {game.quarter}</Badge>
                     {game.tv_network && <span className="text-xs text-slate-500">{game.tv_network}</span>}
@@ -413,7 +413,7 @@ export default function MyTeams() {
             </div>
             <div className="space-y-3">
               {upcomingGames.map((game, idx) => (
-                <div key={idx} className="bg-white rounded-xl shadow-sm p-4">
+                <div key={idx} className="bg-surface-container rounded-xl shadow-sm p-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-slate-600">{game.game_date} • {game.game_time}</span>
                     {game.tv_network && <Badge variant="outline">{game.tv_network}</Badge>}
@@ -442,7 +442,7 @@ export default function MyTeams() {
         )}
 
         {displayTeams.length > 0 && myTeamsGames.length === 0 && !gamesLoading && (
-          <div className="text-center py-12 bg-white rounded-2xl">
+          <div className="text-center py-12 bg-surface-container rounded-2xl">
             <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-3">
               🏈
             </div>
@@ -652,7 +652,7 @@ export default function MyTeams() {
                           ? 'border-green-200 bg-green-50' 
                           : game.result && !game.result.won 
                             ? 'border-red-200 bg-red-50/50' 
-                            : 'border-slate-200 bg-white'
+                            : 'border-slate-200 bg-surface-container'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -848,11 +848,11 @@ export default function MyTeams() {
                               isWin ? 'border-green-200 bg-green-50' :
                               isLoss ? 'border-red-200 bg-red-50' :
                               isLive ? 'border-red-300 bg-red-50' :
-                              'border-slate-200 bg-white'
+                              'border-slate-200 bg-surface-container'
                             }`}
                           >
                             {/* Opponent Logo */}
-                            <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                            <div className="w-10 h-10 rounded-lg bg-surface-container border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
                               <img 
                                 src={game.opponent_logo || `https://a.espncdn.com/i/teamlogos/ncaa/500/${game.opponent_id || '0'}.png`}
                                 alt={game.opponent} 
@@ -927,7 +927,7 @@ export default function MyTeams() {
                     {viewingTeamNews.map((article, idx) => (
                       <button
                         key={article.id || idx}
-                        className="w-full bg-white border border-slate-200 rounded-xl overflow-hidden text-left hover:bg-slate-50 hover:border-orange-200 transition-colors"
+                        className="w-full bg-surface-container border border-slate-200 rounded-xl overflow-hidden text-left hover:bg-slate-50 hover:border-orange-200 transition-colors"
                         onClick={() => setViewingArticle(article)}
                       >
                         <div className="flex gap-3 p-3">
@@ -1004,7 +1004,7 @@ export default function MyTeams() {
                 {viewingArticle.articles?.map((article, idx) => (
                   <button
                     key={article.id || idx}
-                    className="w-full bg-white rounded-xl p-3 border border-slate-200 text-left hover:bg-slate-50 transition-colors"
+                    className="w-full bg-surface-container rounded-xl p-3 border border-slate-200 text-left hover:bg-slate-50 transition-colors"
                     onClick={() => setViewingArticle(article)}
                   >
                     <div className="flex gap-3">

@@ -183,7 +183,7 @@ export default function CampusMap() {
       </div>
       
       {/* Filter Pills */}
-      <div className="px-4 py-3 bg-white shadow-sm overflow-x-auto">
+      <div className="px-4 py-3 bg-surface-container shadow-sm overflow-x-auto">
         <div className="flex gap-2">
           {AMENITY_TYPES.map(({ value, label, icon: Icon, color }) => (
             <Badge
@@ -217,7 +217,7 @@ export default function CampusMap() {
         {/* Selected Amenity Card */}
         {selectedAmenity && (
           <div className="absolute bottom-4 left-4 right-4 z-20">
-            <div className="bg-white rounded-2xl shadow-xl p-4">
+            <div className="bg-surface-container rounded-2xl shadow-xl p-4">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div 

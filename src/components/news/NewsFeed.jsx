@@ -28,7 +28,7 @@ export default function NewsFeed({ teamName, compact = false }) {
   
   if (isLoading) {
     return (
-      <div className="bg-white rounded-2xl p-6 shadow-sm">
+      <div className="bg-surface-container rounded-2xl p-6 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
           <Newspaper className="w-5 h-5 text-slate-600" />
           <h3 className="font-bold text-slate-900">Latest News</h3>
@@ -50,7 +50,7 @@ export default function NewsFeed({ teamName, compact = false }) {
   const displayItems = compact ? newsItems.slice(0, 3) : newsItems;
   
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm">
+    <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
       <div className="flex items-center gap-2 mb-4">
         <Newspaper className="w-5 h-5 text-slate-600" />
         <h3 className="font-bold text-slate-900">Latest News - {teamName}</h3>

@@ -36,8 +36,8 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 text-center">
+        <div className="min-h-screen bg-gradient-to-br from-ink-900 via-ink-800 to-ink-900 flex items-center justify-center p-4">
+          <div className="bg-surface-container rounded-3xl shadow-2xl max-w-md w-full p-8 text-center">
             {/* Error Icon */}
             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <AlertTriangle className="w-10 h-10 text-red-500" />

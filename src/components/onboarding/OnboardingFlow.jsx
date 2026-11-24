@@ -116,7 +116,7 @@ export default function OnboardingFlow({ onComplete }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900">
+    <div className="fixed inset-0 z-50 bg-ink-900">
       <div className="h-full flex flex-col">
         {/* Skip Button */}
         <div className="p-4 flex justify-end">
@@ -185,7 +185,7 @@ export default function OnboardingFlow({ onComplete }) {
               }}
               className={`w-2 h-2 rounded-full transition-all ${
                 idx === currentSlide 
-                  ? 'w-8 bg-white' 
+                  ? 'w-8 bg-surface-container' 
                   : 'bg-white/30 hover:bg-white/50'
               }`}
             />

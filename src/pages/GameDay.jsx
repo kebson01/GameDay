@@ -259,7 +259,7 @@ export default function GameDay() {
 
     return (
       <div 
-        className={`relative bg-white rounded-2xl shadow-sm border overflow-hidden transition-all ${
+        className={`relative bg-surface-container rounded-2xl shadow-sm border overflow-hidden transition-all ${
           isLive 
             ? 'border-red-200 cursor-pointer hover:shadow-lg hover:scale-[1.01]' 
             : isFinal 
@@ -288,7 +288,7 @@ export default function GameDay() {
           <div className="flex items-center gap-2">
             {isLive ? (
               <>
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                <div className="w-2 h-2 bg-surface-container rounded-full animate-pulse" />
                 <span className="text-white text-xs font-bold tracking-wide">
                   LIVE • {game.quarter} {game.time_remaining}
                 </span>
@@ -339,7 +339,7 @@ export default function GameDay() {
               {game.away_logo ? (
                 <img src={game.away_logo} alt="" className="w-10 h-10 object-contain" />
               ) : (
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-ink-700 to-ink-800 flex items-center justify-center text-white text-xs font-bold shadow-sm">
                   {game.away_abbrev || game.away_team?.substring(0, 3).toUpperCase()}
                 </div>
               )}
@@ -353,8 +353,8 @@ export default function GameDay() {
               </div>
             </button>
             {(isLive || isFinal) && (
-              <span className={`text-2xl font-bold tabular-nums ${
-                awayWinning ? 'text-green-600' : 'text-slate-400'
+              <span className={`gd-score text-3xl ${
+                awayWinning ? 'text-brand' : 'text-slate-400'
               }`}>
                 {game.away_score}
               </span>
@@ -396,8 +396,8 @@ export default function GameDay() {
               </div>
             </button>
             {(isLive || isFinal) && (
-              <span className={`text-2xl font-bold tabular-nums ${
-                homeWinning ? 'text-green-600' : 'text-slate-400'
+              <span className={`gd-score text-3xl ${
+                homeWinning ? 'text-brand' : 'text-slate-400'
               }`}>
                 {game.home_score}
               </span>
@@ -474,7 +474,7 @@ export default function GameDay() {
       </div>
       
       {/* View Mode Toggle - Improved */}
-      <div className="px-4 py-4 bg-white border-b border-slate-200">
+      <div className="px-4 py-4 bg-surface-container border-b border-slate-200">
         <div className="flex gap-2">
           <button
             onClick={() => setViewMode('today')}
@@ -526,8 +526,8 @@ export default function GameDay() {
                       ? 'bg-red-500 text-white shadow-lg' 
                       : color === 'blue'
                       ? 'bg-blue-500 text-white shadow-lg'
-                      : 'bg-slate-600 text-white shadow-lg'
-                    : 'bg-white border border-slate-200 hover:border-slate-300'
+                      : 'bg-ink-600 text-white shadow-lg'
+                    : 'bg-surface-container border border-slate-200 hover:border-slate-300'
                 }`}
               >
                 <div className="flex items-center justify-center gap-2 mb-1">
@@ -558,7 +558,7 @@ export default function GameDay() {
       )}
       
       {/* Search */}
-      <div className="px-4 py-3 bg-white border-b border-slate-200">
+      <div className="px-4 py-3 bg-surface-container border-b border-slate-200">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input

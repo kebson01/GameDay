@@ -108,7 +108,7 @@ export default function TailgateDirectory() {
             <p className="text-white/80 text-sm">{filteredTailgates.length} parties found</p>
           </div>
           <Button 
-            className="bg-white text-orange-600 hover:bg-white/90"
+            className="bg-surface-container text-orange-600 hover:bg-white/90"
             onClick={() => {
               if (!user) {
                 setShowLoginPrompt(true);
@@ -129,13 +129,13 @@ export default function TailgateDirectory() {
             placeholder="Search tailgates..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-white/90 border-0 h-12"
+            className="pl-10 bg-white/90 dark:bg-surface-container-high border-0 dark:border dark:border-outline-variant h-12"
           />
         </div>
       </div>
       
       {/* Filters & View Toggle */}
-      <div className="px-4 py-3 bg-white shadow-sm sticky top-0 z-10">
+      <div className="px-4 py-3 bg-surface-container shadow-sm sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-1">
             <Sheet>
@@ -247,7 +247,7 @@ export default function TailgateDirectory() {
             ))}
             
             {filteredTailgates.length === 0 && (
-              <div className="col-span-full text-center py-12 bg-white rounded-2xl">
+              <div className="col-span-full text-center py-12 bg-surface-container rounded-2xl">
                 <PartyPopper className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                 <h3 className="font-bold text-slate-900 mb-2">No tailgates found</h3>
                 <p className="text-slate-500 mb-4">Try adjusting your filters or search</p>

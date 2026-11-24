@@ -260,7 +260,7 @@ export default function Schedule() {
           {/* Season View - Games by Week */}
           <TabsContent value="season" className="space-y-4">
             {/* Week Navigation */}
-            <div className="bg-white rounded-2xl shadow-sm p-4">
+            <div className="bg-surface-container rounded-2xl shadow-sm p-4">
               <div className="flex items-center justify-between mb-3">
                 <Button 
                   variant="ghost" 
@@ -366,7 +366,7 @@ export default function Schedule() {
               {(calendarLoading || gamesLoading) ? (
                 <div className="space-y-3">
                   {[1, 2, 3, 4, 5].map(i => (
-                    <div key={i} className="bg-white rounded-2xl p-4 shadow-sm">
+                    <div key={i} className="bg-surface-container rounded-2xl p-4 shadow-sm">
                       <Skeleton className="h-4 w-1/3 mb-3" />
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
@@ -401,7 +401,7 @@ export default function Schedule() {
                   </div>
                 ))
               ) : (
-                <div className="text-center py-12 bg-white rounded-2xl">
+                <div className="text-center py-12 bg-surface-container rounded-2xl">
                   <CalendarIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                   <p className="text-slate-600">No games this week</p>
                   <p className="text-sm text-slate-400 mt-1">
@@ -415,7 +415,7 @@ export default function Schedule() {
           {/* Team Schedule View */}
           <TabsContent value="team" className="space-y-4">
             {/* Team Search */}
-            <div className="bg-white rounded-2xl shadow-sm p-4">
+            <div className="bg-surface-container rounded-2xl shadow-sm p-4">
               <div className="relative mb-4">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
@@ -479,7 +479,7 @@ export default function Schedule() {
                 ) : teamSchedule.length > 0 ? (
                   <div className="space-y-3">
                     {teamSchedule.map((game, idx) => (
-                      <div key={game.id || idx} className="bg-white rounded-xl shadow-sm p-4">
+                      <div key={game.id || idx} className="bg-surface-container rounded-xl shadow-sm p-4">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <Badge variant={game.status === 'final' ? 'secondary' : 'default'} className={
@@ -541,7 +541,7 @@ export default function Schedule() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-12 bg-white rounded-2xl">
+                  <div className="text-center py-12 bg-surface-container rounded-2xl">
                     <CalendarIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-600">No schedule available</p>
                   </div>
@@ -550,7 +550,7 @@ export default function Schedule() {
             )}
 
             {!selectedTeam && (
-              <div className="text-center py-12 bg-white rounded-2xl">
+              <div className="text-center py-12 bg-surface-container rounded-2xl">
                 <Star className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-600">Select a team to view their schedule</p>
               </div>
@@ -560,7 +560,7 @@ export default function Schedule() {
           {/* Rankings View */}
           <TabsContent value="rankings" className="space-y-4">
             {rankingsLoading ? (
-              <div className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
+              <div className="bg-surface-container rounded-2xl shadow-sm p-4 space-y-3">
                 {[1, 2, 3, 4, 5].map(i => (
                   <div key={i} className="flex items-center gap-4">
                     <Skeleton className="w-8 h-8 rounded-full" />
@@ -570,7 +570,7 @@ export default function Schedule() {
                 ))}
               </div>
             ) : rankings.length > 0 ? (
-              <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+              <div className="bg-surface-container rounded-2xl shadow-sm overflow-hidden">
                 <div className="p-4 border-b border-slate-100 bg-gradient-to-r from-orange-500 to-red-600 text-white">
                   <h2 className="font-bold flex items-center gap-2">
                     <Trophy className="w-5 h-5" />
@@ -625,7 +625,7 @@ export default function Schedule() {
                 </div>
               </div>
             ) : (
-              <div className="text-center py-12 bg-white rounded-2xl">
+              <div className="text-center py-12 bg-surface-container rounded-2xl">
                 <Trophy className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-600">Rankings not available</p>
                 <p className="text-sm text-slate-400 mt-1">Check back during the season</p>
@@ -706,15 +706,15 @@ function GameCard({ game, onTeamClick }) {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+    <div className="bg-surface-container rounded-2xl shadow-sm overflow-hidden">
       {/* Status Bar */}
       <div className={`px-4 py-2 flex items-center justify-between text-sm font-semibold ${
         isLive ? 'bg-red-500 text-white' : 
-        isFinal ? 'bg-slate-600 text-white' : 
+        isFinal ? 'bg-ink-600 text-white' : 
         'bg-blue-500 text-white'
       }`}>
         <div className="flex items-center gap-2">
-          {isLive && <span className="w-2 h-2 bg-white rounded-full animate-pulse" />}
+          {isLive && <span className="w-2 h-2 bg-surface-container rounded-full animate-pulse" />}
           <span>
             {isLive ? (game.status_detail || 'LIVE') : 
              isFinal ? 'FINAL' : 

@@ -7,12 +7,14 @@ import { Toaster } from 'sonner';
 import { auth } from '@/lib/auth';
 import OfflineIndicator from '@/components/common/OfflineIndicator';
 import AuthModal from '@/components/auth/AuthModal';
+import { useTheme } from '@/lib/theme';
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const [user, setUser] = useState(null);
   
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const { resolvedTheme } = useTheme();
 
   useEffect(() => {
     auth.me().then(setUser).catch(() => setUser(null));
@@ -38,18 +40,8 @@ export default function Layout({ children, currentPageName }) {
   const showNav = !['Settings', 'PrivacyPolicy', 'TermsOfService'].includes(currentPageName);
   
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-surface text-on-surface">
       <style>{`
-        :root {
-          --primary: #F97316;
-          --primary-foreground: #FFFFFF;
-        }
-        
-        body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-          background: #F8FAFC;
-        }
-        
         /* Custom scrollbar */
         ::-webkit-scrollbar {
           display: none;
@@ -80,7 +72,10 @@ export default function Layout({ children, currentPageName }) {
       
       {/* Bottom Navigation */}
       {showNav && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50 safe-area-pb shadow-lg">
+        <nav
+          aria-label="Main"
+          className="fixed bottom-0 left-0 right-0 z-50 safe-area-pb bg-surface-container/95 backdrop-blur-xl border-t border-outline-variant shadow-[0_-4px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_16px_rgba(0,0,0,0.35)]"
+        >
           <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
             {navItems.map(({ name, icon: Icon, page }) => {
               const isActive = currentPageName === page;
@@ -88,21 +83,22 @@ export default function Layout({ children, currentPageName }) {
                 <Link
                   key={page}
                   to={createPageUrl(page)}
-                  className={cn(
-                    "flex flex-col items-center justify-center flex-1 py-2 rounded-xl mx-1 transition-all",
-                    isActive ? "bg-orange-50" : "hover:bg-slate-50"
-                  )}
+                  aria-current={isActive ? 'page' : undefined}
+                  className="relative flex flex-col items-center justify-center flex-1 py-2 mx-1 transition-colors"
                 >
-                  <Icon 
+                  {isActive && (
+                    <span className="absolute -top-px left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full bg-brand" />
+                  )}
+                  <Icon
                     className={cn(
                       "w-6 h-6 transition-colors",
-                      isActive ? "text-orange-500" : "text-slate-400"
+                      isActive ? "text-brand" : "text-on-surface-variant"
                     )}
                     strokeWidth={isActive ? 2.5 : 2}
                   />
                   <span className={cn(
-                    "text-[10px] mt-0.5 font-medium",
-                    isActive ? "text-orange-500" : "text-slate-400"
+                    "text-[11px] mt-0.5 font-semibold",
+                    isActive ? "text-brand" : "text-on-surface-variant"
                   )}>
                     {name}
                   </span>
@@ -113,7 +109,7 @@ export default function Layout({ children, currentPageName }) {
         </nav>
       )}
       
-      <Toaster position="top-center" richColors />
+      <Toaster position="top-center" richColors theme={resolvedTheme} />
 
       {currentPageName !== 'Home' && (
         <AuthModal

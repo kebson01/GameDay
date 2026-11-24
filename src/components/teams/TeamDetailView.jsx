@@ -176,11 +176,11 @@ export default function TeamDetailView({ team, isOpen, onClose, onArticleClick }
                             isWin ? 'border-green-200 bg-green-50' :
                             isLoss ? 'border-red-200 bg-red-50' :
                             isLive ? 'border-red-300 bg-red-50' :
-                            'border-slate-200 bg-white'
+                            'border-slate-200 bg-surface-container'
                           }`}
                         >
                           {/* Opponent Logo */}
-                          <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                          <div className="w-10 h-10 rounded-lg bg-surface-container border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
                             <img 
                               src={game.opponent_logo || `https://a.espncdn.com/i/teamlogos/ncaa/500/${game.opponent_id || '0'}.png`}
                               alt={game.opponent} 
@@ -250,7 +250,7 @@ export default function TeamDetailView({ team, isOpen, onClose, onArticleClick }
                   {news.map((article, idx) => (
                     <button
                       key={article.id || idx}
-                      className="w-full bg-white border border-slate-200 rounded-xl overflow-hidden text-left hover:bg-slate-50 hover:border-orange-200 transition-colors"
+                      className="w-full bg-surface-container border border-slate-200 rounded-xl overflow-hidden text-left hover:bg-slate-50 hover:border-orange-200 transition-colors"
                       onClick={() => onArticleClick?.(article)}
                     >
                       <div className="flex gap-3 p-3">

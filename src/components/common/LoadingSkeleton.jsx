@@ -14,7 +14,7 @@ export function Skeleton({ className, ...props }) {
 // Card skeleton
 export function CardSkeleton({ className }) {
   return (
-    <div className={cn("bg-white rounded-2xl p-4 shadow-sm", className)}>
+    <div className={cn("bg-surface-container rounded-2xl p-4 shadow-sm", className)}>
       <div className="flex items-center gap-3 mb-4">
         <Skeleton className="w-12 h-12 rounded-full" />
         <div className="flex-1">
@@ -32,7 +32,7 @@ export function CardSkeleton({ className }) {
 // List item skeleton
 export function ListItemSkeleton({ className }) {
   return (
-    <div className={cn("flex items-center gap-3 p-3 bg-white rounded-xl", className)}>
+    <div className={cn("flex items-center gap-3 p-3 bg-surface-container rounded-xl", className)}>
       <Skeleton className="w-10 h-10 rounded-full" />
       <div className="flex-1">
         <Skeleton className="h-4 w-3/4 mb-2" />
@@ -46,7 +46,7 @@ export function ListItemSkeleton({ className }) {
 // Game card skeleton
 export function GameCardSkeleton({ className }) {
   return (
-    <div className={cn("bg-white rounded-2xl p-4 shadow-sm", className)}>
+    <div className={cn("bg-surface-container rounded-2xl p-4 shadow-sm", className)}>
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <Skeleton className="h-3 w-24 mb-2" />
@@ -62,7 +62,7 @@ export function GameCardSkeleton({ className }) {
 // Tailgate card skeleton
 export function TailgateCardSkeleton({ className }) {
   return (
-    <div className={cn("bg-white rounded-2xl shadow-md overflow-hidden", className)}>
+    <div className={cn("bg-surface-container rounded-2xl shadow-md overflow-hidden", className)}>
       <Skeleton className="w-full h-44" />
       <div className="p-4">
         <div className="flex items-start justify-between mb-2">
@@ -75,9 +75,9 @@ export function TailgateCardSkeleton({ className }) {
         <div className="flex items-center justify-between mt-4">
           <div className="flex items-center gap-2">
             <div className="flex -space-x-2">
-              <Skeleton className="w-8 h-8 rounded-full border-2 border-white" />
-              <Skeleton className="w-8 h-8 rounded-full border-2 border-white" />
-              <Skeleton className="w-8 h-8 rounded-full border-2 border-white" />
+              <Skeleton className="w-8 h-8 rounded-full border-2 border-surface-container" />
+              <Skeleton className="w-8 h-8 rounded-full border-2 border-surface-container" />
+              <Skeleton className="w-8 h-8 rounded-full border-2 border-surface-container" />
             </div>
             <Skeleton className="h-3 w-16" />
           </div>
@@ -158,9 +158,9 @@ export function QuickActionsSkeleton() {
 // Full page loading skeleton for Home
 export function HomePageSkeleton() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-surface-container">
       {/* Header skeleton */}
-      <div className="bg-white border-b border-gray-200 px-4 pt-12 pb-3">
+      <div className="bg-surface-container border-b border-gray-200 px-4 pt-12 pb-3">
         <div className="flex items-center justify-between">
           <Skeleton className="h-7 w-28" />
           <div className="flex items-center gap-3">

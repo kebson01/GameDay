@@ -21,7 +21,7 @@ export default function AdvancedStats({ stats, isLoading }) {
     <div className="space-y-4">
       {/* Current Season Overview */}
       {current_season && (
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
           <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
             <Award className="w-5 h-5 text-orange-500" />
             Current Season
@@ -83,7 +83,7 @@ export default function AdvancedStats({ stats, isLoading }) {
 
       {/* Rankings */}
       {rankings && (
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
           <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
             <Target className="w-5 h-5 text-orange-500" />
             Rankings
@@ -113,7 +113,7 @@ export default function AdvancedStats({ stats, isLoading }) {
 
       {/* Trends */}
       {trends && (
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
           <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
             <Activity className="w-5 h-5 text-orange-500" />
             Performance Trends
@@ -183,7 +183,7 @@ export default function AdvancedStats({ stats, isLoading }) {
 
       {/* Key Players */}
       {key_players && key_players.length > 0 && (
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
           <h3 className="font-bold text-slate-900 mb-3">Key Players</h3>
           <div className="space-y-3">
             {key_players.map((player, idx) => (

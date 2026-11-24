@@ -7,7 +7,7 @@ export default function PlayByPlay({ data, isLoading, homeTeam, awayTeam, homeLo
     return (
       <div className="space-y-3">
         {[1, 2, 3, 4, 5].map(i => (
-          <div key={i} className="bg-white rounded-xl p-4 animate-pulse shadow-sm">
+          <div key={i} className="bg-surface-container rounded-xl p-4 animate-pulse shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <div className="h-5 w-16 bg-slate-200 rounded" />
               <div className="h-5 w-20 bg-slate-200 rounded" />
@@ -22,7 +22,7 @@ export default function PlayByPlay({ data, isLoading, homeTeam, awayTeam, homeLo
 
   if (!data?.plays || data.plays.length === 0) {
     return (
-      <div className="text-center py-12 bg-white rounded-2xl shadow-sm">
+      <div className="text-center py-12 bg-surface-container rounded-2xl shadow-sm">
         <Activity className="w-16 h-16 text-slate-200 mx-auto mb-4" />
         <p className="text-slate-500 font-medium">No play-by-play available</p>
         <p className="text-slate-400 text-sm mt-1">Check back during the game for live updates</p>
@@ -44,7 +44,7 @@ export default function PlayByPlay({ data, isLoading, homeTeam, awayTeam, homeLo
     <div className="space-y-4">
       {/* Current Game Situation */}
       {game_situation && (
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white rounded-2xl p-4 shadow-lg">
+        <div className="bg-gradient-to-r from-ink-800 to-ink-900 text-white rounded-2xl p-4 shadow-lg">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
             <span className="font-semibold text-sm uppercase tracking-wide">Live Situation</span>
@@ -102,15 +102,15 @@ export default function PlayByPlay({ data, isLoading, homeTeam, awayTeam, homeLo
           </div>
           <p className="text-sm text-blue-700 mb-3">{current_drive.description || current_drive.possession_text}</p>
           <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="bg-white rounded-xl p-2">
+            <div className="bg-surface-container rounded-xl p-2">
               <p className="text-xl font-bold text-blue-900">{current_drive.plays_count || 0}</p>
               <p className="text-xs text-blue-600">Plays</p>
             </div>
-            <div className="bg-white rounded-xl p-2">
+            <div className="bg-surface-container rounded-xl p-2">
               <p className="text-xl font-bold text-blue-900">{current_drive.yards || 0}</p>
               <p className="text-xs text-blue-600">Yards</p>
             </div>
-            <div className="bg-white rounded-xl p-2">
+            <div className="bg-surface-container rounded-xl p-2">
               <p className="text-sm font-bold text-blue-900">{current_drive.start_yard_line || '-'}</p>
               <p className="text-xs text-blue-600">Started</p>
             </div>
@@ -136,7 +136,7 @@ export default function PlayByPlay({ data, isLoading, homeTeam, awayTeam, homeLo
                 ? 'bg-gradient-to-r from-red-50 to-red-100 border-red-500'
                 : play.is_key_play
                 ? 'bg-gradient-to-r from-orange-50 to-yellow-50 border-orange-500'
-                : 'bg-white border-slate-200 hover:border-slate-300'
+                : 'bg-surface-container border-slate-200 hover:border-slate-300'
             }`}
           >
             {/* Play Header */}

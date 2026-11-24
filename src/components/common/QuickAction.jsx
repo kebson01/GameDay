@@ -15,7 +15,7 @@ export default function QuickAction({
     green: 'from-green-400 to-green-600 hover:from-green-500 hover:to-green-700',
     red: 'from-red-400 to-red-600 hover:from-red-500 hover:to-red-700',
     purple: 'from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700',
-    slate: 'from-slate-600 to-slate-800 hover:from-slate-700 hover:to-slate-900',
+    slate: 'from-ink-600 to-ink-800 hover:from-ink-700 hover:to-ink-900',
   };
   
   return (

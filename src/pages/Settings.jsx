@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '@/lib/theme';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '@/lib/auth';
 import { useMutation } from '@tanstack/react-query';
@@ -6,7 +7,8 @@ import { createPageUrl } from '@/utils';
 import { 
   ArrowLeft, User, Bell, Shield, MapPin, Palette,
   LogOut, ChevronRight, Moon, Sun, Smartphone, Share2,
-  FileText, Scale, HelpCircle, RefreshCw, LogIn
+  FileText, Scale, HelpCircle, RefreshCw, LogIn,
+  Monitor,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,13 +21,13 @@ import SafetyButton from '@/components/common/SafetyButton';
 import AuthModal from '@/components/auth/AuthModal';
 
 export default function Settings() {
+  const { preference: themePreference, resolvedTheme, setPreference: setThemePreference } = useTheme();
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [settings, setSettings] = useState({
     notifications: true,
     location_sharing: true,
-    dark_mode: false,
     school: '',
   });
   
@@ -97,7 +99,7 @@ export default function Settings() {
               </div>
               <Button 
                 onClick={() => setShowAuthModal(true)}
-                className="bg-white text-slate-900 hover:bg-white/90"
+                className="bg-surface-container text-slate-900 hover:bg-white/90"
               >
                 <LogIn className="w-4 h-4 mr-2" />
                 Sign In
@@ -110,7 +112,7 @@ export default function Settings() {
       {/* Settings Sections */}
       <div className="px-4 py-4 space-y-4 -mt-4">
         {/* Notifications */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-surface-container rounded-2xl shadow-sm overflow-hidden">
           <div className="p-4 border-b border-slate-100">
             <h3 className="font-bold text-slate-900 flex items-center gap-2">
               <Bell className="w-5 h-5 text-orange-500" />
@@ -139,7 +141,7 @@ export default function Settings() {
         </div>
         
         {/* Privacy & Location */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-surface-container rounded-2xl shadow-sm overflow-hidden">
           <div className="p-4 border-b border-slate-100">
             <h3 className="font-bold text-slate-900 flex items-center gap-2">
               <Shield className="w-5 h-5 text-orange-500" />
@@ -168,7 +170,7 @@ export default function Settings() {
         </div>
         
         {/* Appearance */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-surface-container rounded-2xl shadow-sm overflow-hidden">
           <div className="p-4 border-b border-slate-100">
             <h3 className="font-bold text-slate-900 flex items-center gap-2">
               <Palette className="w-5 h-5 text-purple-500" />
@@ -176,24 +178,40 @@ export default function Settings() {
             </h3>
           </div>
           <div className="p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {settings.dark_mode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-                <div>
-                  <p className="font-medium">Dark Mode</p>
-                  <p className="text-sm text-slate-500">Easier on the eyes</p>
-                </div>
+            <div className="flex items-center gap-3 mb-3">
+              {resolvedTheme === 'dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+              <div>
+                <p className="font-medium">Theme</p>
+                <p className="text-sm text-slate-500">Dark mode is easier on the eyes at night games</p>
               </div>
-              <Switch 
-                checked={settings.dark_mode}
-                onCheckedChange={(checked) => setSettings(s => ({ ...s, dark_mode: checked }))}
-              />
+            </div>
+            <div role="radiogroup" aria-label="Theme" className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-100">
+              {[
+                { value: 'system', label: 'System', icon: Monitor },
+                { value: 'light', label: 'Light', icon: Sun },
+                { value: 'dark', label: 'Dark', icon: Moon },
+              ].map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  role="radio"
+                  aria-checked={themePreference === value}
+                  onClick={() => setThemePreference(value)}
+                  className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    themePreference === value
+                      ? 'bg-brand text-white shadow'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
 
         {/* Legal */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-surface-container rounded-2xl shadow-sm overflow-hidden">
           <div className="p-4 border-b border-slate-100">
             <h3 className="font-bold text-slate-900 flex items-center gap-2">
               <Scale className="w-5 h-5 text-blue-500" />
@@ -219,7 +237,7 @@ export default function Settings() {
         </div>
         
         {/* Actions */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-surface-container rounded-2xl shadow-sm overflow-hidden">
           <button 
             className="w-full p-4 flex items-center gap-3 hover:bg-slate-50 transition-colors border-b border-slate-100"
             onClick={() => {

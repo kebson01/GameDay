@@ -82,7 +82,7 @@ export default function LiveGame() {
       <GameAlerts plays={playByPlayData?.plays} gameId={gameId} />
 
       {/* Header with Live Score */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white px-4 pt-12 pb-6 sticky top-0 z-10 shadow-lg">
+      <div className="bg-gradient-to-br from-ink-900 via-ink-800 to-ink-900 text-white px-4 pt-12 pb-6 sticky top-0 z-10 shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <Button
             variant="ghost"
@@ -100,7 +100,7 @@ export default function LiveGame() {
               </>
             )}
             {isFinal && (
-              <span className="text-sm font-semibold bg-slate-700 px-2 py-1 rounded">FINAL</span>
+              <span className="text-sm font-semibold bg-ink-700 px-2 py-1 rounded">FINAL</span>
             )}
             {!isLive && !isFinal && (
               <span className="text-sm font-medium opacity-75">{statusDetail || 'Upcoming'}</span>
@@ -136,7 +136,7 @@ export default function LiveGame() {
               {gameSummary?.away?.rank && (
                 <span className="text-xs opacity-75">#{gameSummary.away.rank}</span>
               )}
-              <p className="text-3xl font-bold mt-2">{awayScore}</p>
+              <p className="gd-score text-5xl mt-2">{awayScore}</p>
             </div>
 
             {/* Game Info */}
@@ -174,7 +174,7 @@ export default function LiveGame() {
               {gameSummary?.home?.rank && (
                 <span className="text-xs opacity-75">#{gameSummary.home.rank}</span>
               )}
-              <p className="text-3xl font-bold mt-2">{homeScore}</p>
+              <p className="gd-score text-5xl mt-2">{homeScore}</p>
             </div>
           </div>
         </div>
@@ -199,11 +199,11 @@ export default function LiveGame() {
       <div className="px-4 py-4">
         <Tabs defaultValue="plays" className="w-full">
           <TabsList className="w-full grid grid-cols-2 mb-4 bg-slate-100 p-1 rounded-xl">
-            <TabsTrigger value="plays" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <TabsTrigger value="plays" className="rounded-lg data-[state=active]:bg-surface-container data-[state=active]:shadow-sm">
               <Activity className="w-4 h-4 mr-2" />
               Play-by-Play
             </TabsTrigger>
-            <TabsTrigger value="stats" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <TabsTrigger value="stats" className="rounded-lg data-[state=active]:bg-surface-container data-[state=active]:shadow-sm">
               <BarChart3 className="w-4 h-4 mr-2" />
               Live Stats
             </TabsTrigger>

@@ -1,3 +1,4 @@
+@import "./styles/theme-colors.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -75,134 +76,179 @@ button:focus-visible {
 
 
 @layer base {
+  /* ---- Light theme ---- */
   :root {
+    color-scheme: light;
+
+    /* GameDay tokens (RGB channels) */
+    --gd-surface: 246 247 251;
+    --gd-surface-container: 255 255 255;
+    --gd-surface-container-high: 241 245 249;
+    --gd-surface-container-highest: 226 232 240;
+    --gd-on-surface: 15 23 42;
+    --gd-on-surface-variant: 71 85 105;
+    --gd-outline: 148 163 184;
+    --gd-outline-variant: 226 232 240;
+    --gd-brand: 249 115 22;       /* #f97316 */
+    --gd-brand-soft: 234 88 12;   /* orange text on light */
+    --gd-win: 5 150 105;          /* emerald */
+    --gd-highlight: 217 119 6;    /* amber */
+
+    /* shadcn/ui tokens (HSL) */
     --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 24.6 95% 53.1%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 33 100% 96%;
+    --accent-foreground: 21 90% 40%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-    
-    /* GameDay Brand Colors */
-    --gd-orange: 24.6 95% 53.1%;
-    --gd-red: 0 84.2% 60.2%;
-    --gd-yellow: 47.9 95.8% 53.1%;
-    --gd-bg: 210 40% 96.1%;
-    --gd-card-radius: 1rem;
-  }
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 24.6 95% 53.1%;
+    --chart-1: 24.6 95% 53.1%;
+    --chart-2: 160 84% 39%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 217 91% 60%;
+    --chart-5: 330 81% 60%;
+    --radius: 0.75rem;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 24.6 95% 53.1%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 210 40% 96.1%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 24.6 95% 53.1%;
+  }
+
+  /* ---- Dark theme (from the GameDay "Saturday Live" design) ---- */
+  .dark {
+    color-scheme: dark;
+
+    --gd-surface: 11 19 38;                 /* #0b1326 */
+    --gd-surface-container: 23 31 51;       /* #171f33 */
+    --gd-surface-container-high: 34 42 61;  /* #222a3d */
+    --gd-surface-container-highest: 45 52 73; /* #2d3449 */
+    --gd-on-surface: 218 226 253;           /* #dae2fd */
+    --gd-on-surface-variant: 154 164 191;
+    --gd-outline: 124 134 162;
+    --gd-outline-variant: 45 52 73;
+    --gd-brand: 249 115 22;
+    --gd-brand-soft: 255 182 144;           /* #ffb690 */
+    --gd-win: 78 222 163;                   /* #4edea3 */
+    --gd-highlight: 255 185 95;             /* #ffb95f */
+
+    --background: 222 55% 10%;
+    --foreground: 227 89% 92%;
+    --card: 222 38% 15%;
+    --card-foreground: 227 89% 92%;
+    --popover: 222 38% 15%;
+    --popover-foreground: 227 89% 92%;
+    --primary: 24.6 95% 53.1%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 222 28% 19%;
+    --secondary-foreground: 227 89% 92%;
+    --muted: 222 28% 19%;
+    --muted-foreground: 224 22% 68%;
+    --accent: 222 24% 23%;
+    --accent-foreground: 20 100% 78%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 224 24% 23%;
+    --input: 224 24% 23%;
+    --ring: 24.6 95% 53.1%;
+    --chart-1: 24.6 95% 53.1%;
+    --chart-2: 156 69% 59%;
+    --chart-3: 34 100% 69%;
+    --chart-4: 217 91% 68%;
+    --chart-5: 330 81% 70%;
+    --sidebar-background: 222 38% 15%;
+    --sidebar-foreground: 227 89% 92%;
+    --sidebar-primary: 24.6 95% 53.1%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 28% 19%;
+    --sidebar-accent-foreground: 227 89% 92%;
+    --sidebar-border: 224 24% 23%;
+    --sidebar-ring: 24.6 95% 53.1%;
   }
 }
-
-
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-surface text-on-surface font-sans antialiased;
+  }
+  /* Condensed sports-broadcast headlines (Barlow Condensed) */
+  h1, h2, h3 {
+    @apply font-display tracking-tight;
+  }
+  h1, h2 {
+    @apply uppercase;
   }
 }
 
 /* GameDay Theme Utilities */
 @layer components {
+  /* Light: brand-orange header. Dark: navy glass header like the design sample. */
   .gd-header {
     @apply bg-gradient-to-r from-orange-500 via-orange-400 to-amber-400 text-white;
   }
-  
+  .dark .gd-header {
+    @apply bg-none bg-surface/90 backdrop-blur-xl border-b border-outline-variant text-on-surface shadow-[0_1px_8px_rgba(0,0,0,0.25)];
+  }
+  .gd-header h1 {
+    @apply font-display uppercase tracking-tight;
+  }
+
   .gd-page {
-    @apply min-h-screen bg-slate-50 pb-24;
+    @apply min-h-screen bg-surface pb-24;
   }
-  
+
   .gd-card {
-    @apply bg-white rounded-2xl shadow-sm border border-slate-100;
+    @apply bg-surface-container rounded-2xl shadow-sm border border-outline-variant;
   }
-  
+
   .gd-card-compact {
-    @apply bg-white rounded-xl shadow-sm border border-slate-100;
+    @apply bg-surface-container rounded-xl shadow-sm border border-outline-variant;
   }
-  
+
   .gd-btn-primary {
-    @apply bg-orange-500 hover:bg-orange-600 text-white font-semibold;
+    @apply bg-brand hover:bg-orange-600 text-white font-semibold shadow-[0_0_16px_-4px_rgba(249,115,22,0.5)];
   }
-  
+
   .gd-section-title {
-    @apply text-lg font-bold text-slate-900;
+    @apply font-display text-xl font-bold uppercase tracking-wide text-on-surface;
   }
-  
+
   .gd-subtitle {
-    @apply text-sm text-slate-500;
+    @apply text-sm text-on-surface-variant;
   }
-  
+
+  /* Big condensed scoreboard numerals */
+  .gd-score {
+    @apply font-display font-extrabold tabular-nums tracking-wide;
+  }
+
   .gd-badge-live {
     @apply bg-red-500 text-white animate-pulse;
   }
-  
+
   .gd-badge-upcoming {
     @apply bg-blue-500 text-white;
   }
-  
+
   .gd-badge-final {
-    @apply bg-slate-500 text-white;
+    @apply bg-ink-500 text-white;
   }
 }

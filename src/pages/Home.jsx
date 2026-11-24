@@ -152,7 +152,7 @@ export default function Home() {
                     >
                       {group.avatar_emoji || '🏈'}
                     </div>
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white">
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-surface-container flex items-center justify-center text-xs font-bold text-white">
                       {group.members?.filter(m => m.location_sharing)?.length || 0}
                     </div>
                   </div>
@@ -208,7 +208,7 @@ export default function Home() {
               <div className="flex items-center gap-2 mb-1">
                 {nextGame.status === 'live' ? (
                   <span className="flex items-center gap-1 text-white text-sm font-bold bg-red-500 px-2 py-0.5 rounded-full">
-                    <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                    <span className="w-2 h-2 bg-surface-container rounded-full animate-pulse" />
                     LIVE NOW
                   </span>
                 ) : (
@@ -249,7 +249,7 @@ export default function Home() {
                 </div>
               )}
               <button 
-                className="mt-2 bg-white text-black font-bold py-3 px-6 rounded-full text-sm w-full"
+                className="mt-2 bg-white text-ink-900 font-bold py-3 px-6 rounded-full text-sm w-full"
                 onClick={() => navigate(createPageUrl('GameDay'))}
               >
                 {nextGame.status === 'live' ? 'Watch Live Scores' : 'View All Games'}
@@ -289,7 +289,7 @@ export default function Home() {
                   <p className="text-sm font-semibold text-gray-900 mb-2">{featuredLabel}</p>
                   <button
                     onClick={() => navigate(createPageUrl('TailgateDetail') + `?id=${tailgates[0].id}`)}
-                    className="w-full bg-white rounded-2xl shadow-md overflow-hidden"
+                    className="w-full bg-surface-container rounded-2xl shadow-md overflow-hidden"
                   >
                     <div className="relative h-44">
                       {tailgates[0].photo_url ? (
@@ -297,7 +297,7 @@ export default function Home() {
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-purple-400 via-pink-400 to-orange-400" />
                       )}
-                      <div className="absolute top-3 left-3 bg-white rounded-xl px-3 py-2 shadow-lg">
+                      <div className="absolute top-3 left-3 bg-surface-container rounded-xl px-3 py-2 shadow-lg">
                         <p className="text-2xl font-bold text-orange-600">{tailgateDate(tailgates[0]) ? format(tailgateDate(tailgates[0]), 'd') : '--'}</p>
                         <p className="text-xs font-semibold text-orange-600 uppercase">{tailgateDate(tailgates[0]) ? format(tailgateDate(tailgates[0]), 'MMM') : 'TBD'}</p>
                       </div>
@@ -316,9 +316,9 @@ export default function Home() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="flex -space-x-2">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 border-2 border-white" />
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-red-600 border-2 border-white" />
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-teal-600 border-2 border-white" />
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 border-2 border-surface-container" />
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-red-600 border-2 border-surface-container" />
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-teal-600 border-2 border-surface-container" />
                           </div>
                           <span className="text-sm text-orange-500 font-medium">{tailgates[0].rsvp_count || 0} Attending</span>
                         </div>
@@ -340,7 +340,7 @@ export default function Home() {
                       <button
                         key={tailgate.id}
                         onClick={() => navigate(createPageUrl('TailgateDetail') + `?id=${tailgate.id}`)}
-                        className="bg-white rounded-2xl shadow-md overflow-hidden text-left"
+                        className="bg-surface-container rounded-2xl shadow-md overflow-hidden text-left"
                       >
                         <div className="relative h-32">
                           {tailgate.photo_url ? (
@@ -348,7 +348,7 @@ export default function Home() {
                           ) : (
                             <div className="w-full h-full bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400" />
                           )}
-                          <div className="absolute top-2 left-2 bg-white rounded-lg px-2 py-1 shadow">
+                          <div className="absolute top-2 left-2 bg-surface-container rounded-lg px-2 py-1 shadow">
                             <p className="text-lg font-bold text-orange-600">{tailgateDate(tailgate) ? format(tailgateDate(tailgate), 'd') : '--'}</p>
                             <p className="text-[10px] font-semibold text-orange-600 uppercase leading-none">{tailgateDate(tailgate) ? format(tailgateDate(tailgate), 'MMM') : 'TBD'}</p>
                           </div>
@@ -358,8 +358,8 @@ export default function Home() {
                           <p className="text-xs text-gray-500 mb-2">{tailgate.start_time || '8:30 pm'} - {tailgate.end_time || '11:00 pm'}</p>
                           <div className="flex items-center justify-between">
                             <div className="flex -space-x-1.5">
-                              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 border border-white" />
-                              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-pink-400 to-red-600 border border-white" />
+                              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 border border-surface-container" />
+                              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-pink-400 to-red-600 border border-surface-container" />
                             </div>
                             <span className="text-xs text-gray-500">{tailgate.rsvp_count || 0}</span>
                             <div className="flex items-center gap-1 text-orange-500 text-xs">
@@ -408,7 +408,7 @@ export default function Home() {
           ) : games.length > 0 ? (
             <div className="space-y-3">
               {games.slice(0, 3).map((game) => (
-                <div key={game.id} className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
+                <div key={game.id} className="bg-surface-container border border-gray-200 rounded-2xl p-4 shadow-sm">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">

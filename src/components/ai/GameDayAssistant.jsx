@@ -144,10 +144,11 @@ export default function GameDayAssistant() {
             exit={{ scale: 0 }}
             onClick={() => setIsOpen(true)}
             aria-label="Ask the GameDay AI assistant"
-            // Sits above the SOS button (bottom-24) so it never covers it
-            className="fixed bottom-[10.5rem] right-4 w-14 h-14 bg-gradient-to-r from-orange-500 to-red-600 rounded-full shadow-lg flex items-center justify-center z-40"
+            className="fixed bottom-[10.5rem] right-4 z-40 h-11 px-4 rounded-full flex items-center gap-1.5 bg-surface-container/95 backdrop-blur border border-orange-500/50 text-orange-600 dark:text-brand-soft font-display text-lg font-bold uppercase tracking-wide shadow-[0_0_18px_-4px_rgba(249,115,22,0.55)]"
           >
-            <Sparkles className="w-6 h-6 text-white" />
+            {/* Pill sits above the SOS button (bottom-24) so it never covers it */}
+            <Sparkles className="w-5 h-5" />
+            Ask AI
           </motion.button>
         )}
       </AnimatePresence>
@@ -170,10 +171,10 @@ export default function GameDayAssistant() {
               initial={{ opacity: 0, y: 100 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 100 }}
-              className="fixed left-4 right-4 bottom-4 top-[20%] z-[70] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+              className="fixed left-4 right-4 bottom-4 top-[20%] z-[70] bg-surface-container rounded-2xl shadow-2xl flex flex-col overflow-hidden"
             >
               {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b bg-white">
+              <div className="flex items-center justify-between p-4 border-b bg-surface-container">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-r from-orange-500 to-red-600 flex items-center justify-center">
                     <Bot className="w-5 h-5 text-white" />
@@ -206,7 +207,7 @@ export default function GameDayAssistant() {
                       <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
                         msg.isUser 
                           ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white' 
-                          : 'bg-white text-slate-900 shadow-sm border border-slate-100'
+                          : 'bg-surface-container text-slate-900 shadow-sm border border-slate-100'
                       }`}>
                         <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
                       </div>
@@ -218,7 +219,7 @@ export default function GameDayAssistant() {
                       animate={{ opacity: 1 }}
                       className="flex justify-start"
                     >
-                      <div className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-slate-100">
+                      <div className="bg-surface-container rounded-2xl px-4 py-3 shadow-sm border border-slate-100">
                         <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
                       </div>
                     </motion.div>
@@ -234,7 +235,7 @@ export default function GameDayAssistant() {
                         <button
                           key={idx}
                           onClick={() => handleQuickPrompt(prompt)}
-                          className="text-xs bg-white text-orange-700 px-3 py-1.5 rounded-full hover:bg-orange-50 transition-colors border border-orange-200"
+                          className="text-xs bg-surface-container text-orange-700 px-3 py-1.5 rounded-full hover:bg-orange-50 transition-colors border border-orange-200"
                         >
                           {prompt}
                         </button>
@@ -245,7 +246,7 @@ export default function GameDayAssistant() {
               </div>
 
               {/* Input - Fixed at bottom */}
-              <div className="p-4 bg-white border-t">
+              <div className="p-4 bg-surface-container border-t">
                 <div className="flex gap-2">
                   <input
                     ref={inputRef}

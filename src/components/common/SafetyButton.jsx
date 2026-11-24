@@ -88,11 +88,11 @@ export default function SafetyButton({ onSOS, onCheckIn, className }) {
         onClick={() => setIsOpen(true)}
         aria-label="SOS safety options"
         className={cn(
-          "fixed bottom-24 right-4 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg flex items-center justify-center hover:scale-110 transition-transform active:scale-95",
+          "fixed bottom-24 right-4 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 text-white ring-4 ring-red-500/25 shadow-[0_0_20px_-2px_rgba(239,68,68,0.6)] flex items-center justify-center hover:scale-110 transition-transform active:scale-95",
           className
         )}
       >
-        <AlertTriangle className="w-6 h-6" />
+        <span className="font-display text-lg font-extrabold tracking-wider">SOS</span>
       </button>
       
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
