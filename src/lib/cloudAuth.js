@@ -37,6 +37,7 @@ function toAppUser(authUser, profile) {
     picture: profile?.avatar_url || meta.avatar_url || meta.picture || null,
     favorite_teams: profile?.favorite_teams || [],
     settings: profile?.settings || {},
+    role: profile?.is_admin ? 'admin' : 'user', // moderators (set in the database)
     auth_provider: providers.join('+') || 'email',
     created_date: authUser.created_at,
     cloud: true,

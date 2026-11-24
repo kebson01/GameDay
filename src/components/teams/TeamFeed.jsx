@@ -9,8 +9,61 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { 
   Heart, MessageCircle, Share2, Send, Trophy, 
-  Newspaper, TrendingUp, Sparkles, ExternalLink, Video, Upload, Flag, Play 
+  Newspaper, TrendingUp, Sparkles, ExternalLink, Video, Upload, Flag, Play, Trash2 
 } from 'lucide-react';
+import { isCloudEnabled } from '@/lib/supabase';
+
+// Comments under a post (loaded when the post's comment area is opened)
+function CommentList({ postId, user, onDeleted }) {
+  const { data: comments = [], isLoading } = useQuery({
+    queryKey: ['team-comments', postId],
+    queryFn: () => client.entities.TeamComment.filter({ post_id: postId }, 'created_date', 100),
+    refetchInterval: 15000,
+  });
+  if (isLoading) return <p className="text-xs text-slate-400 py-2">Loading comments…</p>;
+  if (!comments.length) return <p className="text-xs text-slate-500 py-2">No comments yet. Start the conversation!</p>;
+  return (
+    <ul className="space-y-2 mb-3">
+      {comments.map((c) => {
+        const mine = c.is_own || (user && c.user_email && c.user_email === user.email);
+        return (
+          <li key={c.id} className="flex items-start gap-2">
+            {c.user_avatar ? (
+              <img src={c.user_avatar} alt="" referrerPolicy="no-referrer" className="w-7 h-7 rounded-full object-cover shrink-0" />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0">
+                {c.user_name?.charAt(0) || 'U'}
+              </div>
+            )}
+            <div className="flex-1 min-w-0 rounded-xl bg-slate-50 px-3 py-2">
+              <p className="text-xs">
+                <span className="font-semibold text-slate-900">{c.user_name || 'Fan'}</span>
+                <span className="text-slate-400"> · {formatDistanceToNow(new Date(c.created_date), { addSuffix: true })}</span>
+              </p>
+              <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">{c.content}</p>
+            </div>
+            {mine && (
+              <button
+                aria-label="Delete comment"
+                className="p-1 text-slate-400 hover:text-red-500"
+                onClick={async () => {
+                  try {
+                    await client.entities.TeamComment.delete(c.id);
+                    onDeleted?.();
+                  } catch (e) {
+                    toast.error(e.message);
+                  }
+                }}
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import TrendingTopics from './TrendingTopics.jsx';
@@ -43,8 +96,11 @@ export default function TeamFeed({ teamName, user }) {
     queryFn: async () => {
       const allPosts = await client.entities.TeamPost.filter({ team_name: teamName }, '-created_date', 50);
       // Filter out hidden posts for non-admins
-      return user?.role === 'admin' ? allPosts : allPosts.filter(p => !p.is_hidden);
+      // Hidden posts: moderators see all; authors still see their own (marked hidden)
+      return user?.role === 'admin' ? allPosts : allPosts.filter(p => !p.is_hidden || p.is_own);
     },
+    // Shared feed: pick up other fans' posts
+    refetchInterval: isCloudEnabled() ? 15000 : false,
   });
 
   const createPostMutation = useMutation({
@@ -78,7 +134,10 @@ export default function TeamFeed({ teamName, user }) {
   });
 
   const likePostMutation = useMutation({
-    mutationFn: ({ postId, likes }) => client.entities.TeamPost.update(postId, { likes }),
+    mutationFn: ({ postId, likes, post }) =>
+      typeof client.entities.TeamPost.toggleLike === 'function'
+        ? client.entities.TeamPost.toggleLike(post) // shared: one like per fan, counted by the server
+        : client.entities.TeamPost.update(postId, { likes }),
     onSuccess: () => {
       queryClient.invalidateQueries(['team-posts', teamName]);
     },
@@ -115,12 +174,13 @@ export default function TeamFeed({ teamName, user }) {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, { postId }) => {
       queryClient.invalidateQueries(['team-posts', teamName]);
-      setCommentingOn(null);
+      queryClient.invalidateQueries(['team-comments', postId]);
       setCommentText('');
       toast.success('Comment added!');
     },
+    onError: (error) => toast.error(error.message),
   });
 
   const handleVideoUpload = async (e) => {
@@ -132,8 +192,9 @@ export default function TeamFeed({ teamName, user }) {
       return;
     }
 
-    if (file.size > 100 * 1024 * 1024) { // 100MB limit
-      toast.error('Video must be under 100MB');
+    const maxMb = isCloudEnabled() ? 50 : 100; // cloud storage limit
+    if (file.size > maxMb * 1024 * 1024) {
+      toast.error(`Video must be under ${maxMb}MB`);
       return;
     }
 
@@ -170,7 +231,7 @@ export default function TeamFeed({ teamName, user }) {
     const newLikes = hasLiked 
       ? likes.filter(email => email !== user.email)
       : [...likes, user.email];
-    likePostMutation.mutate({ postId: post.id, likes: newLikes });
+    likePostMutation.mutate({ postId: post.id, likes: newLikes, post });
   };
 
   const handleComment = (postId) => {
@@ -193,6 +254,17 @@ export default function TeamFeed({ teamName, user }) {
       toast.success('Post flagged for review');
     } catch (error) {
       toast.error('Failed to flag post');
+    }
+  };
+
+  const handleDelete = async (postId) => {
+    if (!window.confirm('Delete this post?')) return;
+    try {
+      await client.entities.TeamPost.delete(postId);
+      queryClient.invalidateQueries(['team-posts', teamName]);
+      toast.success('Post deleted');
+    } catch (error) {
+      toast.error(error.message || 'Failed to delete post');
     }
   };
 
@@ -334,19 +406,25 @@ export default function TeamFeed({ teamName, user }) {
       ) : (
         posts.map((post) => {
           const PostIcon = POST_TYPES[post.type]?.icon || MessageCircle;
-          const hasLiked = post.likes?.includes(user?.email);
+          const hasLiked = post.liked_by_me ?? post.likes?.includes(user?.email);
+          const likeCount = post.like_count ?? post.likes?.length ?? 0;
+          const isOwnPost = post.is_own || (user && post.user_email && post.user_email === user.email);
           
           return (
             <div key={post.id} className="bg-surface-container rounded-2xl p-4 shadow-sm">
               {/* Post Header */}
               <div className="flex items-start justify-between mb-3">
                 <div 
-                  className="flex items-center gap-3 cursor-pointer"
-                  onClick={() => navigate(createPageUrl('UserProfile') + `?email=${post.user_email}`)}
+                  className={`flex items-center gap-3 ${post.user_email ? 'cursor-pointer' : ''}`}
+                  onClick={() => post.user_email && navigate(createPageUrl('UserProfile') + `?email=${post.user_email}`)}
                 >
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-red-600 flex items-center justify-center text-white font-bold">
-                    {post.user_name?.charAt(0) || 'U'}
-                  </div>
+                  {post.user_avatar ? (
+                    <img src={post.user_avatar} alt="" referrerPolicy="no-referrer" className="w-10 h-10 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-red-600 flex items-center justify-center text-white font-bold">
+                      {post.user_name?.charAt(0) || 'U'}
+                    </div>
+                  )}
                   <div>
                     <p className="font-semibold text-slate-900 hover:text-orange-600 transition-colors">{post.user_name}</p>
                     <p className="text-xs text-slate-500">
@@ -359,6 +437,13 @@ export default function TeamFeed({ teamName, user }) {
                   {POST_TYPES[post.type]?.label || post.type}
                 </Badge>
               </div>
+
+              {post.is_hidden && (
+                <p className="mb-2 rounded-lg bg-yellow-50 border border-yellow-200 px-3 py-2 text-xs text-yellow-800">
+                  <Flag className="inline w-3 h-3 mr-1" />
+                  {isOwnPost ? 'Hidden from other fans after reports. A moderator can restore it.' : 'Hidden from fans (moderator view)'}
+                </p>
+              )}
 
               {/* Post Content */}
               <p className="text-slate-700 mb-3 whitespace-pre-wrap">{post.content}</p>
@@ -410,7 +495,7 @@ export default function TeamFeed({ teamName, user }) {
                   disabled={!user}
                 >
                   <Heart className={`w-5 h-5 ${hasLiked ? 'fill-red-500 text-red-500' : ''}`} />
-                  <span className="text-sm font-medium">{post.likes?.length || 0}</span>
+                  <span className="text-sm font-medium">{likeCount}</span>
                 </button>
                 <button
                   onClick={() => setCommentingOn(commentingOn === post.id ? null : post.id)}
@@ -433,7 +518,16 @@ export default function TeamFeed({ teamName, user }) {
                 >
                   <Share2 className="w-5 h-5" />
                 </button>
-                {user && user.email !== post.user_email && !post.is_flagged && (
+                {isOwnPost && (
+                  <button
+                    onClick={() => handleDelete(post.id)}
+                    className="flex items-center gap-2 text-slate-400 hover:text-red-500 transition-colors ml-auto"
+                    aria-label="Delete post"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                )}
+                {user && !isOwnPost && !post.is_flagged && (
                   <button
                     onClick={() => handleFlag(post.id)}
                     className="flex items-center gap-2 text-slate-600 hover:text-yellow-500 transition-colors ml-auto"
@@ -450,9 +544,18 @@ export default function TeamFeed({ teamName, user }) {
                 )}
               </div>
 
-              {/* Comment Box */}
-              {commentingOn === post.id && user && (
+              {/* Comments */}
+              {commentingOn === post.id && (
                 <div className="mt-3 pt-3 border-t border-slate-100">
+                  <CommentList
+                    postId={post.id}
+                    user={user}
+                    onDeleted={() => {
+                      queryClient.invalidateQueries(['team-comments', post.id]);
+                      queryClient.invalidateQueries(['team-posts', teamName]);
+                    }}
+                  />
+                  {user && (
                   <div className="flex gap-2">
                     <Input
                       placeholder="Write a comment..."
@@ -468,6 +571,7 @@ export default function TeamFeed({ teamName, user }) {
                       <Send className="w-4 h-4" />
                     </Button>
                   </div>
+                  )}
                 </div>
               )}
             </div>

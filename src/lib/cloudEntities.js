@@ -241,3 +241,120 @@ export async function uploadPhoto(file) {
   must(await supabase.storage.from('uploads').upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false }));
   return supabase.storage.from('uploads').getPublicUrl(path).data.publicUrl;
 }
+
+// ---------------------------------------------------------------------------
+// Team chat: posts, likes, comments, reports (shared between all fans)
+// Author names come from profiles (set by the database). Likes and reports
+// are private rows; posts carry the counts. Emails are never exposed.
+// ---------------------------------------------------------------------------
+const POST_COLUMNS = ['team_name', 'content', 'type', 'news_url', 'news_title', 'video_url'];
+
+async function decoratePosts(rows) {
+  const user = currentUser();
+  const ids = rows.map(r => r.id);
+  let liked = new Set();
+  let reported = new Set();
+  if (user?.cloud && ids.length) {
+    const [likes, reports] = await Promise.all([
+      supabase.from('team_post_likes').select('post_id').in('post_id', ids),
+      supabase.from('team_post_reports').select('post_id').in('post_id', ids),
+    ]);
+    liked = new Set((likes.data || []).map(r => r.post_id));
+    reported = new Set((reports.data || []).map(r => r.post_id));
+  }
+  const isAdmin = user?.role === 'admin';
+  return rows.map(r => {
+    const own = user?.cloud && r.user_id === user.id;
+    return {
+      ...withDates(r),
+      user_email: own ? user.email : null, // others' emails are private
+      is_own: own,
+      liked_by_me: liked.has(r.id),
+      // Moderators see any reported post as flagged; others see their own report
+      is_flagged: isAdmin ? r.report_count > 0 : reported.has(r.id),
+    };
+  });
+}
+
+export const TeamPost = {
+  list: async () => decoratePosts(must(await supabase.from('team_posts').select('*').order('created_at', { ascending: false }).limit(100))),
+
+  get: async (id) => (await decoratePosts(must(await supabase.from('team_posts').select('*').eq('id', id))))[0] || null,
+
+  filter: async (conditions = {}, sortBy = '-created_date', limit = 50) => {
+    const user = currentUser();
+    const { user_email: email, ...rest } = conditions || {};
+    let q = supabase.from('team_posts').select('*');
+    if (rest.team_name) q = q.eq('team_name', rest.team_name);
+    if (email) {
+      // Only your own posts can be looked up by email
+      if (!user?.cloud || email.toLowerCase() !== user.email?.toLowerCase()) return [];
+      q = q.eq('user_id', user.id);
+    }
+    q = applySort(q, sortBy || '-created_date');
+    if (limit) q = q.limit(limit);
+    return decoratePosts(must(await q));
+  },
+
+  create: async (data) => {
+    const fields = Object.fromEntries(Object.entries(data).filter(([k, v]) => POST_COLUMNS.includes(k) && v !== undefined && v !== ''));
+    const row = must(await supabase.from('team_posts').insert(fields).select().single());
+    return (await decoratePosts([row]))[0];
+  },
+
+  // Map the feed's existing update() calls onto server-checked actions
+  update: async (id, data) => {
+    if ('is_hidden' in data || (data.is_flagged === false && currentUser()?.role === 'admin')) {
+      must(await supabase.rpc('moderate_post', { p_id: id, p_hidden: Boolean(data.is_hidden) }));
+    } else if (data.is_flagged === true) {
+      await TeamPost.report(id);
+    } else {
+      const fields = {};
+      for (const k of ['content', 'news_url', 'news_title']) if (k in data) fields[k] = data[k];
+      if (Object.keys(fields).length) must(await supabase.from('team_posts').update(fields).eq('id', id));
+    }
+    return TeamPost.get(id);
+  },
+
+  delete: async (id) => {
+    must(await supabase.from('team_posts').delete().eq('id', id));
+    return true;
+  },
+
+  toggleLike: async (post) => {
+    const user = currentUser();
+    if (!user?.cloud) throw new Error('Sign in to like posts');
+    if (post.liked_by_me) {
+      must(await supabase.from('team_post_likes').delete().eq('post_id', post.id).eq('user_id', user.id));
+    } else {
+      const res = await supabase.from('team_post_likes').insert({ post_id: post.id });
+      if (res.error && res.error.code !== '23505') must(res); // ignore "already liked"
+    }
+    return true;
+  },
+
+  report: async (id) => {
+    const res = await supabase.from('team_post_reports').insert({ post_id: id });
+    if (res.error && res.error.code !== '23505') must(res); // already reported
+    return true;
+  },
+};
+
+export const TeamComment = {
+  filter: async (conditions = {}, sortBy = 'created_date', limit = 100) => {
+    let q = supabase.from('team_comments').select('*');
+    if (conditions.post_id) q = q.eq('post_id', conditions.post_id);
+    q = applySort(q, sortBy || 'created_date');
+    if (limit) q = q.limit(limit);
+    const user = currentUser();
+    return must(await q).map(r => ({ ...withDates(r), is_own: Boolean(user?.cloud && r.user_id === user.id) }));
+  },
+  list: async () => TeamComment.filter({}),
+  get: async (id) => withDates(must(await supabase.from('team_comments').select('*').eq('id', id).maybeSingle())),
+  create: async (data) => withDates(must(await supabase.from('team_comments').insert({ post_id: data.post_id, content: data.content }).select().single())),
+  update: async (id) => TeamComment.get(id),
+  delete: async (id) => {
+    must(await supabase.from('team_comments').delete().eq('id', id));
+    return true;
+  },
+};
