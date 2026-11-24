@@ -358,3 +358,24 @@ export const TeamComment = {
     return true;
   },
 };
+
+// ---------------------------------------------------------------------------
+// Realtime: live team chat updates (Supabase Realtime, RLS-filtered)
+// onChange(payload) fires for inserts/updates/deletes of a team's posts.
+// Likes, comments and reports change the post's counters, so they arrive as
+// post updates too. onStatus(isLive) reports whether the live channel is up.
+// Returns an unsubscribe function.
+// ---------------------------------------------------------------------------
+export function subscribeToTeamPosts(teamName, onChange, onStatus) {
+  const channel = supabase
+    .channel(`team-posts:${teamName}:${Math.random().toString(36).slice(2, 8)}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'team_posts', filter: `team_name=eq.${teamName}` }, onChange)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'team_posts', filter: `team_name=eq.${teamName}` }, onChange)
+    // Delete events can't be filtered by column; the feed just refreshes
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'team_posts' }, onChange)
+    .subscribe((status) => onStatus?.(status === 'SUBSCRIBED'));
+  return () => {
+    onStatus?.(false);
+    supabase.removeChannel(channel);
+  };
+}

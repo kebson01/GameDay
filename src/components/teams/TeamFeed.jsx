@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { client } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -12,6 +12,7 @@ import {
   Newspaper, TrendingUp, Sparkles, ExternalLink, Video, Upload, Flag, Play, Trash2 
 } from 'lucide-react';
 import { isCloudEnabled } from '@/lib/supabase';
+import { subscribeToTeamPosts } from '@/lib/cloudEntities';
 
 // Comments under a post (loaded when the post's comment area is opened)
 function CommentList({ postId, user, onDeleted }) {
@@ -90,6 +91,30 @@ export default function TeamFeed({ teamName, user }) {
   const [showNewPost, setShowNewPost] = useState(false);
   const [commentingOn, setCommentingOn] = useState(null);
   const [commentText, setCommentText] = useState('');
+  const [isLive, setIsLive] = useState(false);
+  const refreshTimer = useRef(null);
+
+  // Realtime: refresh the feed (and open comment threads) the moment another
+  // fan posts, likes, comments, or a post is hidden/deleted
+  useEffect(() => {
+    if (!isCloudEnabled() || !teamName) return undefined;
+    const unsubscribe = subscribeToTeamPosts(
+      teamName,
+      (payload) => {
+        clearTimeout(refreshTimer.current); // batch bursts (e.g. several likes)
+        refreshTimer.current = setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['team-posts', teamName] });
+          const postId = payload.new?.id;
+          if (postId) queryClient.invalidateQueries({ queryKey: ['team-comments', postId] });
+        }, 250);
+      },
+      setIsLive
+    );
+    return () => {
+      clearTimeout(refreshTimer.current);
+      unsubscribe();
+    };
+  }, [teamName, queryClient]);
 
   const { data: posts = [] } = useQuery({
     queryKey: ['team-posts', teamName],
@@ -99,8 +124,8 @@ export default function TeamFeed({ teamName, user }) {
       // Hidden posts: moderators see all; authors still see their own (marked hidden)
       return user?.role === 'admin' ? allPosts : allPosts.filter(p => !p.is_hidden || p.is_own);
     },
-    // Shared feed: pick up other fans' posts
-    refetchInterval: isCloudEnabled() ? 15000 : false,
+    // Shared feed: live updates arrive over realtime; polling is the fallback
+    refetchInterval: isCloudEnabled() ? (isLive ? 60000 : 15000) : false,
   });
 
   const createPostMutation = useMutation({
@@ -283,6 +308,18 @@ export default function TeamFeed({ teamName, user }) {
       {user?.role === 'admin' && (
         <div className="flex justify-end">
           <ModerationPanel posts={posts} onModerate={handleModeration} user={user} />
+        </div>
+      )}
+
+      {isCloudEnabled() && (
+        <div className="flex justify-end -mb-2">
+          <span
+            className={`inline-flex items-center gap-1.5 text-xs font-semibold ${isLive ? 'text-green-600' : 'text-slate-400'}`}
+            title={isLive ? 'New posts appear instantly' : 'Connecting… (refreshing every 15 seconds)'}
+          >
+            <span className={`h-2 w-2 rounded-full ${isLive ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`} />
+            {isLive ? 'Live' : 'Connecting…'}
+          </span>
         </div>
       )}
 
