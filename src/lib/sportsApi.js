@@ -446,6 +446,8 @@ export async function fetchNews(limit = 20) {
       link: article.links?.web?.href || article.links?.mobile?.href,
       published: article.published,
       source: 'ESPN',
+      is_video: article.type === 'Media',
+      premium: !!article.premium,
     })) || [];
   } catch (error) {
     console.error('Error fetching news:', error);
@@ -1036,6 +1038,10 @@ export default {
   fetchPlayByPlay,
   fetchLiveGameStats,
   fetchGameSummary,
+  fetchGameVideos,
+  fetchVideoNews,
+  findTeamId,
+  parseVideo,
   getCurrentSeason,
   POPULAR_TEAMS,
   SEASON_WEEKS,
@@ -1043,3 +1049,93 @@ export default {
   POSTSEASON_WEEKS,
   REFRESH_INTERVAL,
 };
+
+
+// ---------------------------------------------------------------------------
+// Video highlights
+// Clips are shown inside GameDay (thumbnail, headline, description) and play
+// on ESPN's own page (opened over the app), so we never re-host ESPN video.
+// ---------------------------------------------------------------------------
+
+export function formatDuration(seconds) {
+  const s = Math.round(Number(seconds) || 0);
+  if (!s) return null;
+  const m = Math.floor(s / 60);
+  return `${m}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// Normalizes a clip from a game summary ("videos") or a news item (type "Media")
+export function parseVideo(item) {
+  if (!item) return null;
+  const url = item.links?.web?.href || item.links?.mobile?.href;
+  if (!url) return null;
+  return {
+    id: String(item.id || item.dataSourceIdentifier || url),
+    headline: item.headline,
+    description: item.description && item.description !== item.headline ? item.description : null,
+    thumbnail: item.thumbnail || item.images?.[0]?.url || null,
+    duration: item.duration || null,
+    duration_label: formatDuration(item.duration),
+    published: item.originalPublishDate || item.published || item.lastModified || null,
+    premium: !!item.premium,
+    url,
+    source: 'ESPN',
+  };
+}
+
+// Highlights for one game: the recap first, then individual plays
+export async function fetchGameVideos(gameId) {
+  if (!gameId) return [];
+  try {
+    const response = await fetch(`${ESPN_BASE}/summary?event=${gameId}`);
+    if (!response.ok) throw new Error('Failed to fetch game videos');
+    const data = await response.json();
+    const videos = (data.videos || []).map(parseVideo).filter(Boolean);
+    // Longest clip is the game recap; keep the rest in ESPN's order
+    const recapIdx = videos.reduce((best, v, i) => ((v.duration || 0) > (videos[best]?.duration || 0) ? i : best), 0);
+    if (recapIdx > 0) videos.unshift(...videos.splice(recapIdx, 1));
+    return videos;
+  } catch (error) {
+    console.error('Error fetching game videos:', error);
+    return [];
+  }
+}
+
+// Video stories from the college football news feed, optionally for one team
+export async function fetchVideoNews({ teamId, limit = 50 } = {}) {
+  try {
+    const team = teamId ? `team=${teamId}&` : '';
+    const response = await fetch(`${ESPN_BASE}/news?${team}limit=${limit}`);
+    if (!response.ok) throw new Error('Failed to fetch video news');
+    const data = await response.json();
+    return (data.articles || [])
+      .filter(a => a.type === 'Media')
+      .map(parseVideo)
+      .filter(Boolean);
+  } catch (error) {
+    console.error('Error fetching video news:', error);
+    return [];
+  }
+}
+
+// Resolve a team name used in the app ("Georgia" or "Georgia Bulldogs") to an ESPN team id
+let teamIndexPromise = null;
+export async function findTeamId(name) {
+  if (!name) return null;
+  const needle = name.trim().toLowerCase();
+  const popular = POPULAR_TEAMS.find(t => t.name.toLowerCase() === needle);
+  if (popular) return popular.id;
+  if (!teamIndexPromise) {
+    teamIndexPromise = fetch(`${ESPN_BASE}/teams?limit=1000`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => (d?.sports?.[0]?.leagues?.[0]?.teams || []).map(t => t.team))
+      .catch(() => { teamIndexPromise = null; return []; });
+  }
+  const teams = await teamIndexPromise;
+  const match =
+    teams.find(t => t.displayName?.toLowerCase() === needle) ||
+    teams.find(t => t.location?.toLowerCase() === needle) ||
+    teams.find(t => t.shortDisplayName?.toLowerCase() === needle) ||
+    teams.find(t => t.displayName?.toLowerCase().startsWith(needle + ' '));
+  return match?.id || null;
+}

@@ -15,6 +15,8 @@ import HistoricalPerformance from '@/components/teams/HistoricalPerformance';
 import HeadToHeadDisplay from '@/components/teams/HeadToHeadDisplay';
 import PredictionWidget from '@/components/teams/PredictionWidget';
 import { toast } from 'sonner';
+import VideoHighlights from '@/components/video/VideoHighlights';
+import { findTeamId, fetchVideoNews } from '@/lib/sportsApi';
 
 export default function TeamPage() {
   const navigate = useNavigate();
@@ -58,6 +60,17 @@ export default function TeamPage() {
   const recentGames = teamGames.filter(g => g.status === 'final').slice(0, 3);
 
   // Fetch advanced team statistics
+  // Team video highlights from ESPN
+  const { data: teamVideos = [], isLoading: videosLoading } = useQuery({
+    queryKey: ['team-videos', teamName],
+    queryFn: async () => {
+      const teamId = await findTeamId(teamName);
+      return teamId ? fetchVideoNews({ teamId }) : [];
+    },
+    enabled: !!teamName,
+    staleTime: 300000,
+  });
+
   const { data: teamStats, isLoading: statsLoading } = useQuery({
     queryKey: ['team-stats', teamName],
     queryFn: async () => {
@@ -251,6 +264,17 @@ export default function TeamPage() {
           </TabsContent>
 
           <TabsContent value="news">
+            <section aria-labelledby="team-highlights" className="mb-6">
+              <h3 id="team-highlights" className="font-display text-xl font-bold uppercase text-slate-900 mb-3">
+                Highlights
+              </h3>
+              <VideoHighlights
+                videos={teamVideos}
+                isLoading={videosLoading}
+                maxItems={8}
+                emptyText={`No recent ${teamName} videos from ESPN.`}
+              />
+            </section>
             <NewsFeed teamName={teamName} />
           </TabsContent>
 

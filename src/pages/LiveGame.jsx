@@ -3,13 +3,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { client } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
-import { ArrowLeft, RefreshCw, Activity, BarChart3, Radio } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Activity, BarChart3, Radio, Film } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PlayByPlay from '@/components/gameday/PlayByPlay';
 import LiveGameStats from '@/components/gameday/LiveGameStats';
 import GameAlerts from '@/components/gameday/GameAlerts';
-import { fetchPlayByPlay, fetchLiveGameStats, fetchGameSummary } from '@/lib/sportsApi';
+import { fetchPlayByPlay, fetchLiveGameStats, fetchGameSummary, fetchGameVideos } from '@/lib/sportsApi';
+import VideoHighlights from '@/components/video/VideoHighlights';
 
 export default function LiveGame() {
   const navigate = useNavigate();
@@ -27,6 +28,15 @@ export default function LiveGame() {
   });
 
   // Fetch play-by-play with auto-refresh
+  // Video highlights (recap + key plays); new clips appear during/after games
+  const { data: videos = [], isLoading: videosLoading, refetch: refetchVideos } = useQuery({
+    queryKey: ['game-videos', gameId],
+    queryFn: () => fetchGameVideos(gameId),
+    enabled: !!gameId,
+    staleTime: 60000,
+    refetchInterval: 120000,
+  });
+
   const { data: playByPlayData, isLoading: pbpLoading, refetch: refetchPBP } = useQuery({
     queryKey: ['play-by-play', gameId],
     queryFn: () => fetchPlayByPlay(gameId),
@@ -46,6 +56,7 @@ export default function LiveGame() {
     refetchSummary();
     refetchPBP();
     refetchStats();
+    refetchVideos();
   };
 
   // Use summary data or fallback to URL params
@@ -198,14 +209,23 @@ export default function LiveGame() {
       {/* Content Tabs */}
       <div className="px-4 py-4">
         <Tabs defaultValue="plays" className="w-full">
-          <TabsList className="w-full grid grid-cols-2 mb-4 bg-slate-100 p-1 rounded-xl">
+          <TabsList className="w-full grid grid-cols-3 mb-4 bg-slate-100 p-1 rounded-xl">
             <TabsTrigger value="plays" className="rounded-lg data-[state=active]:bg-surface-container data-[state=active]:shadow-sm">
               <Activity className="w-4 h-4 mr-2" />
               Play-by-Play
             </TabsTrigger>
             <TabsTrigger value="stats" className="rounded-lg data-[state=active]:bg-surface-container data-[state=active]:shadow-sm">
               <BarChart3 className="w-4 h-4 mr-2" />
-              Live Stats
+              Stats
+            </TabsTrigger>
+            <TabsTrigger value="highlights" className="rounded-lg data-[state=active]:bg-surface-container data-[state=active]:shadow-sm">
+              <Film className="w-4 h-4 mr-1.5" />
+              Highlights
+              {videos.length > 0 && (
+                <span className="ml-1.5 rounded-full bg-brand px-1.5 text-[10px] font-bold leading-4 text-white">
+                  {videos.length}
+                </span>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -228,6 +248,14 @@ export default function LiveGame() {
               homeLogo={homeLogo}
               awayLogo={awayLogo}
               isLoading={statsLoading} 
+            />
+          </TabsContent>
+
+          <TabsContent value="highlights">
+            <VideoHighlights
+              videos={videos}
+              isLoading={videosLoading}
+              emptyText="Highlights usually appear on ESPN during the game and shortly after the final whistle."
             />
           </TabsContent>
         </Tabs>

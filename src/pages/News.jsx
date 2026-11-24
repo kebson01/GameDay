@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { fetchNews, fetchRankings } from '@/lib/sportsApi';
 import { useQuery } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
-import { ArrowLeft, Search, ExternalLink, Clock, Trophy, RefreshCw, Newspaper } from 'lucide-react';
+import { ArrowLeft, Search, ExternalLink, Clock, Trophy, RefreshCw, Newspaper, Play, Film } from 'lucide-react';
+import VideoStorySheet from '@/components/video/VideoStorySheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -13,11 +14,13 @@ import { Skeleton } from '@/components/common/LoadingSkeleton';
 export default function News() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [filter, setFilter] = useState('all'); // 'all' | 'videos'
+  const [selectedVideo, setSelectedVideo] = useState(null);
   
   // Fetch news from ESPN
   const { data: news = [], isLoading: newsLoading, refetch } = useQuery({
     queryKey: ['cfb-news'],
-    queryFn: () => fetchNews(20),
+    queryFn: () => fetchNews(40),
     staleTime: 60000, // 1 minute
   });
 
@@ -28,11 +31,25 @@ export default function News() {
     staleTime: 300000,
   });
 
+  const videoCount = news.filter(a => a.is_video).length;
   const filteredNews = news.filter(article =>
+    (filter === 'all' || article.is_video) && (
     !searchQuery || 
     article.headline?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    article.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    article.description?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  // Video stories open in-app; the clip itself plays on ESPN over the app
+  const openVideoStory = (article) => setSelectedVideo({
+    id: article.id,
+    headline: article.headline,
+    description: article.description,
+    thumbnail: article.image,
+    url: article.link,
+    published: article.published,
+    premium: article.premium,
+    source: article.source,
+  });
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -128,10 +145,31 @@ export default function News() {
 
         {/* News Feed */}
         <div className="space-y-4">
-          <h2 className="font-bold text-slate-900 flex items-center gap-2">
-            <Newspaper className="w-5 h-5 text-blue-500" />
-            Latest News
-          </h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-bold text-slate-900 flex items-center gap-2">
+              <Newspaper className="w-5 h-5 text-blue-500" />
+              Latest News
+            </h2>
+            <div role="tablist" aria-label="Filter news" className="flex gap-1 rounded-full bg-slate-100 p-1">
+              {[
+                { value: 'all', label: 'All' },
+                { value: 'videos', label: `Videos${videoCount ? ` (${videoCount})` : ''}`, icon: Film },
+              ].map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  role="tab"
+                  aria-selected={filter === value}
+                  onClick={() => setFilter(value)}
+                  className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                    filter === value ? 'bg-brand text-white shadow' : 'text-slate-600'
+                  }`}
+                >
+                  {Icon && <Icon className="h-3.5 w-3.5" />}
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {newsLoading ? (
             <div className="space-y-4">
@@ -146,7 +184,47 @@ export default function News() {
             </div>
           ) : filteredNews.length > 0 ? (
             <div className="space-y-4">
-              {filteredNews.map((article, idx) => (
+              {filteredNews.map((article, idx) => article.is_video ? (
+                <button
+                  type="button"
+                  key={article.id || idx}
+                  onClick={() => openVideoStory(article)}
+                  className="block w-full text-left bg-surface-container rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                  aria-label={`Video: ${article.headline}`}
+                >
+                  <div className="relative aspect-video bg-ink-900">
+                    {article.image && (
+                      <img src={article.image} alt="" loading="lazy" className="w-full h-full object-cover" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    <span className="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-[0_0_20px_-2px_rgba(249,115,22,0.7)]">
+                      <Play className="ml-1 h-6 w-6 fill-white" />
+                    </span>
+                    <Badge className="absolute top-3 left-3 bg-red-600 hover:bg-red-600">
+                      <Film className="mr-1 h-3 w-3" /> Video
+                    </Badge>
+                    {article.premium && (
+                      <Badge className="absolute top-3 right-3 bg-yellow-400 text-ink-900 hover:bg-yellow-400">ESPN+</Badge>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-bold text-slate-900 mb-2 line-clamp-2">{article.headline}</h3>
+                    {article.description && (
+                      <p className="text-sm text-slate-600 mb-3 line-clamp-2">{article.description}</p>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formatDate(article.published)}
+                      </span>
+                      <span className="text-xs font-semibold text-orange-600 flex items-center gap-1">
+                        <Play className="w-3 h-3 fill-current" />
+                        Watch
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              ) : (
                 <a
                   key={article.id || idx}
                   href={article.link}
@@ -194,13 +272,19 @@ export default function News() {
             <div className="text-center py-12 bg-surface-container rounded-2xl">
               <Newspaper className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <p className="text-slate-600">
-                {searchQuery ? 'No articles match your search' : 'No news available'}
+                {searchQuery ? 'No articles match your search' : filter === 'videos' ? 'No videos right now' : 'No news available'}
               </p>
             </div>
           )}
         </div>
       </div>
       
+      <VideoStorySheet
+        video={selectedVideo}
+        open={!!selectedVideo}
+        onOpenChange={(open) => !open && setSelectedVideo(null)}
+      />
+
       <SafetyButton />
     </div>
   );
