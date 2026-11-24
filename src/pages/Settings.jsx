@@ -44,7 +44,7 @@ export default function Settings() {
   });
   
   const handleLogout = async () => {
-    await auth.logout('/');
+    await auth.logout();
   };
 
   const handleResetOnboarding = () => {

@@ -141,7 +141,7 @@ export const auth = {
   },
   
   // Logout
-  logout: (redirectUrl = '/') => {
+  logout: (redirectUrl = import.meta.env.BASE_URL) => {
     logout();
     if (redirectUrl) {
       window.location.href = redirectUrl;

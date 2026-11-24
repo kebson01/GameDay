@@ -5,6 +5,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Deploy path. Defaults to the domain root (Vercel/Netlify). For a sub-folder
+  // deploy (e.g. a page on kebson.com) build with GAMEDAY_BASE=/some/path/
+  base: process.env.GAMEDAY_BASE || '/',
   plugins: [
     react(),
     VitePWA({

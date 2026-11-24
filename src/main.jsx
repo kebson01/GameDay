@@ -28,7 +28,7 @@ const queryClient = new QueryClient({
 // Register service worker for PWA (only in production)
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL })
       .then((registration) => {
         console.log('[GameDay] Service Worker registered:', registration.scope);
       })
