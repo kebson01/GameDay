@@ -26,6 +26,8 @@ import {
   GameCardSkeleton, 
   StoriesSkeleton,
 } from '@/components/common/LoadingSkeleton';
+import VideoHighlights from '@/components/video/VideoHighlights';
+import { fetchVideoNews, findTeamId } from '@/lib/sportsApi';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -93,6 +95,22 @@ export default function Home() {
   });
   
   const nextGame = games[0];
+
+  // Video highlights: favorite teams' clips first, then the latest college football videos
+  const favoriteTeams = user?.favorite_teams || [];
+  const { data: highlights = [], isLoading: highlightsLoading } = useQuery({
+    queryKey: ['home-highlights', favoriteTeams.slice(0, 2).join('|')],
+    queryFn: async () => {
+      const teamIds = (await Promise.all(favoriteTeams.slice(0, 2).map(findTeamId))).filter(Boolean);
+      const lists = await Promise.all([
+        ...teamIds.map(teamId => fetchVideoNews({ teamId, limit: 25 })),
+        fetchVideoNews({ limit: 50 }),
+      ]);
+      const seen = new Set();
+      return lists.flat().filter(v => (seen.has(v.url) ? false : seen.add(v.url))).slice(0, 10);
+    },
+    staleTime: 300000,
+  });
 
   // Tailgate dates are stored as "YYYY-MM-DD"; parse them as local dates
   // (new Date('2025-09-06') is UTC midnight, which shows the previous day in US time zones).
@@ -261,6 +279,22 @@ export default function Home() {
       
       {/* Main Content */}
       <div className="px-4 space-y-6 pb-24">
+        {/* Video Highlights - story opens in the app, video plays on ESPN */}
+        {(highlightsLoading || highlights.length > 0) && (
+          <section aria-labelledby="home-highlights">
+            <div className="flex items-center justify-between mb-3">
+              <h2 id="home-highlights" className="text-xl font-bold">Highlights</h2>
+              <button
+                className="text-orange-500 text-sm font-semibold"
+                onClick={() => navigate(createPageUrl('News') + '?filter=videos')}
+              >
+                See All
+              </button>
+            </div>
+            <VideoHighlights videos={highlights} isLoading={highlightsLoading} layout="rail" />
+          </section>
+        )}
+
         {/* Featured Tailgates - Ticketmaster Style */}
         <section>
           <div className="flex items-center justify-between mb-3">

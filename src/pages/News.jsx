@@ -14,7 +14,10 @@ import { Skeleton } from '@/components/common/LoadingSkeleton';
 export default function News() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState('all'); // 'all' | 'videos'
+  // ?filter=videos (e.g. from Home's Highlights "See All") opens the Videos filter
+  const [filter, setFilter] = useState(() =>
+    new URLSearchParams(window.location.search).get('filter') === 'videos' ? 'videos' : 'all'
+  ); // 'all' | 'videos'
   const [selectedVideo, setSelectedVideo] = useState(null);
   
   // Fetch news from ESPN

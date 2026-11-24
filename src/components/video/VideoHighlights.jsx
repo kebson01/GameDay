@@ -12,12 +12,45 @@ export default function VideoHighlights({
   videos = [],
   isLoading = false,
   featureFirst = true,
+  layout = 'list', // 'list' (vertical) | 'rail' (horizontal swipe row)
   maxItems,
   emptyTitle = 'No highlights yet',
   emptyText = 'Video highlights usually appear shortly after big plays and after the game.',
 }) {
   const [selected, setSelected] = useState(null);
   const list = maxItems ? videos.slice(0, maxItems) : videos;
+
+  if (layout === 'rail') {
+    if (isLoading) {
+      return (
+        <div className="-mx-4 flex gap-3 overflow-hidden px-4" aria-busy="true">
+          {[1, 2].map(i => (
+            <Skeleton key={i} className="h-52 w-64 shrink-0 rounded-2xl" />
+          ))}
+        </div>
+      );
+    }
+    if (list.length === 0) return null;
+    return (
+      <>
+        <div
+          className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none]"
+          role="list"
+        >
+          {list.map(v => (
+            <div key={v.id} role="listitem" className="w-64 shrink-0 snap-start">
+              <VideoCard video={v} layout="tile" onOpen={setSelected} className="h-full" />
+            </div>
+          ))}
+        </div>
+        <VideoStorySheet
+          video={selected}
+          open={!!selected}
+          onOpenChange={open => !open && setSelected(null)}
+        />
+      </>
+    );
+  }
 
   if (isLoading) {
     return (
