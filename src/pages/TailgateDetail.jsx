@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
@@ -49,6 +50,7 @@ export default function TailgateDetail() {
   const [newItem, setNewItem] = useState('');
   const [newAssignee, setNewAssignee] = useState('');
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [passcode, setPasscode] = useState('');
   
   const urlParams = new URLSearchParams(window.location.search);
   const tailgateId = urlParams.get('id');
@@ -67,16 +69,40 @@ export default function TailgateDetail() {
   });
   
   const isHost = user?.id === tailgate?.host_id;
+  const canRsvpOnServer = typeof client.entities.Tailgate.rsvp === 'function';
+
+  // Shared (cloud) tailgates: has this user already RSVP'd?
+  const { data: isAttending = false } = useQuery({
+    queryKey: ['tailgate-attending', tailgateId, user?.id],
+    queryFn: () => client.entities.Tailgate.isAttending(tailgateId),
+    enabled: !!tailgateId && !!user && canRsvpOnServer,
+  });
+  const needsPasscode = canRsvpOnServer && tailgate && !tailgate.is_public && !isHost && !isAttending;
   
   // RSVP mutation
   const rsvpMutation = useMutation({
-    mutationFn: () => client.entities.Tailgate.update(tailgateId, {
-      rsvp_count: (tailgate?.rsvp_count || 0) + 1
-    }),
+    // Cloud: the server checks sign-in, passcode and capacity, and counts RSVPs
+    mutationFn: () => canRsvpOnServer
+      ? client.entities.Tailgate.rsvp(tailgateId, passcode)
+      : client.entities.Tailgate.update(tailgateId, { rsvp_count: (tailgate?.rsvp_count || 0) + 1 }),
     onSuccess: () => {
       queryClient.invalidateQueries(['tailgate', tailgateId]);
+      queryClient.invalidateQueries(['tailgate-attending', tailgateId]);
+      queryClient.invalidateQueries(['tailgates']);
+      setPasscode('');
       toast.success("You're in! See you there 🎉");
     },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const cancelRsvpMutation = useMutation({
+    mutationFn: () => client.entities.Tailgate.cancelRsvp(tailgateId),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['tailgate', tailgateId]);
+      queryClient.invalidateQueries(['tailgate-attending', tailgateId]);
+      toast.success('RSVP cancelled');
+    },
+    onError: (error) => toast.error(error.message),
   });
   
   // Update checklist
@@ -214,9 +240,16 @@ export default function TailgateDetail() {
         
         {/* Title */}
         <div className="absolute bottom-0 left-0 right-0 p-4">
-          <Badge className={typeColors[tailgate.type] || typeColors.open}>
-            {tailgate.type}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {tailgate.type && (
+              <Badge className={typeColors[tailgate.type] || typeColors.open}>
+                {tailgate.type}
+              </Badge>
+            )}
+            {!tailgate.is_public && (
+              <Badge className="bg-ink-900/80 text-white hover:bg-ink-900/80">🔒 Private</Badge>
+            )}
+          </div>
           <h1 className="text-2xl font-bold text-white mt-2">{tailgate.name}</h1>
           <p className="text-white/80">Hosted by {tailgate.host_name}</p>
         </div>
@@ -291,7 +324,10 @@ export default function TailgateDetail() {
             <h3 className="font-bold text-slate-900 mb-2">Location</h3>
             <div className="flex items-center gap-2 text-slate-600">
               <MapPin className="w-4 h-4 text-orange-500" />
-              {tailgate.location?.lot_name || tailgate.location?.description || 'Location details'}
+              {tailgate.location?.lot_name || tailgate.location?.description ||
+                (!tailgate.is_public && !isHost && !isAttending
+                  ? 'Shown after you RSVP with the passcode'
+                  : 'Location details')}
             </div>
           </div>
           
@@ -373,7 +409,34 @@ export default function TailgateDetail() {
         </div>
         
         {/* RSVP Button */}
-        {!isHost && (
+        {!isHost && isAttending && (
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-14 rounded-xl bg-green-50 border border-green-200 text-green-700 font-semibold flex items-center justify-center gap-2">
+              ✓ You're going
+            </div>
+            <Button
+              variant="outline"
+              className="h-14"
+              onClick={() => cancelRsvpMutation.mutate()}
+              disabled={cancelRsvpMutation.isPending}
+            >
+              Cancel RSVP
+            </Button>
+          </div>
+        )}
+        {!isHost && !isAttending && needsPasscode && (
+          <div className="space-y-2">
+            <Label htmlFor="tailgate-passcode">🔒 Private tailgate: enter the host's passcode</Label>
+            <Input
+              id="tailgate-passcode"
+              value={passcode}
+              onChange={(e) => setPasscode(e.target.value)}
+              placeholder="Passcode"
+              autoComplete="off"
+            />
+          </div>
+        )}
+        {!isHost && !isAttending && (
           <Button 
             className="w-full h-14 text-lg bg-orange-500 hover:bg-orange-600 shadow-lg"
             onClick={() => {
@@ -383,7 +446,7 @@ export default function TailgateDetail() {
                 rsvpMutation.mutate();
               }
             }}
-            disabled={rsvpMutation.isPending || (tailgate.capacity && tailgate.rsvp_count >= tailgate.capacity)}
+            disabled={rsvpMutation.isPending || (needsPasscode && !passcode) || (tailgate.capacity && tailgate.rsvp_count >= tailgate.capacity)}
           >
             <UserPlus className="w-5 h-5 mr-2" />
             {rsvpMutation.isPending ? 'Joining...' : "I'm Going!"}

@@ -40,7 +40,7 @@ export default function FriendCard({
           )} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-slate-900 truncate">{friend?.email?.split('@')[0] || 'Friend'}</p>
+          <p className="font-semibold text-slate-900 truncate">{friend?.display_name || friend?.email?.split('@')[0] || 'Friend'}</p>
           {distance && (
             <p className="text-sm text-slate-500">{distance} away</p>
           )}
@@ -72,7 +72,7 @@ export default function FriendCard({
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
-              <p className="font-bold text-slate-900">{friend?.email?.split('@')[0] || 'Friend'}</p>
+              <p className="font-bold text-slate-900">{friend?.display_name || friend?.email?.split('@')[0] || 'Friend'}</p>
               {status === 'sos' && (
                 <Badge className="bg-red-500 text-white flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />

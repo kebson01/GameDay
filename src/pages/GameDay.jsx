@@ -48,7 +48,9 @@ export default function GameDay() {
       if (viewMode === 'today') {
         // Today: show today's games, or next day with games if none today
         const allGames = await fetchScoreboard();
-        const today = new Date().toISOString().split('T')[0];
+        // Local date (toISOString() is UTC and shows tomorrow's tailgates in the evening)
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         
         // First, check for live games and today's games
         const todayGames = allGames.filter(g => {
@@ -115,6 +117,8 @@ export default function GameDay() {
   
   const rsvpMutation = useMutation({
     mutationFn: async (tailgateId) => {
+      // Cloud: server-checked RSVP (sign-in, capacity); on-device: bump the count
+      if (typeof client.entities.Tailgate.rsvp === 'function') return client.entities.Tailgate.rsvp(tailgateId);
       const tailgate = tailgates.find(t => t.id === tailgateId);
       return client.entities.Tailgate.update(tailgateId, {
         rsvp_count: (tailgate?.rsvp_count || 0) + 1
@@ -123,7 +127,8 @@ export default function GameDay() {
     onSuccess: () => {
       queryClient.invalidateQueries(['today-tailgates']);
       toast.success('RSVP confirmed!');
-    }
+    },
+    onError: (error) => toast.error(error.message),
   });
   
   const handleRefresh = () => {

@@ -160,6 +160,10 @@ export default function FindFriends() {
   // Join group
   const joinGroupMutation = useMutation({
     mutationFn: async (code) => {
+      // Cloud: the server validates the code and adds you (you can't see a group before joining)
+      if (typeof client.entities.TailgateGroup.join === 'function') {
+        return client.entities.TailgateGroup.join(code.trim());
+      }
       const groups = await client.entities.TailgateGroup.filter({ invite_code: code.toUpperCase() });
       if (groups.length === 0) throw new Error('Invalid code');
       
@@ -172,8 +176,9 @@ export default function FindFriends() {
         members: [...(group.members || []), { user_id: user.id, email: user.email, role: 'member', location_sharing: true }],
       });
     },
-    onSuccess: () => {
+    onSuccess: (group) => {
       queryClient.invalidateQueries(['my-groups']);
+      if (group?.id) setActiveGroup(group);
       setShowJoinDialog(false);
       setJoinCode('');
       toast.success('Joined group!');
@@ -195,7 +200,7 @@ export default function FindFriends() {
     lat: friend.lat,
     lng: friend.lng,
     icon: markerIcons.friend(FRIEND_COLORS[idx % FRIEND_COLORS.length]),
-    popup: friend.email?.split('@')[0] || 'Friend',
+    popup: friend.display_name || friend.email?.split('@')[0] || 'Friend',
     data: friend,
   }));
   
@@ -382,7 +387,7 @@ export default function FindFriends() {
                     <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-surface-container" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold truncate">{friend?.email?.split('@')[0] || 'Friend'}</p>
+                    <p className="font-semibold truncate">{friend?.display_name || friend?.email?.split('@')[0] || 'Friend'}</p>
                     {distance && <p className="text-sm text-gray-500">{distance} away</p>}
                   </div>
                   <button
@@ -391,7 +396,7 @@ export default function FindFriends() {
                         await openNavigation(
                           friend.lat,
                           friend.lng,
-                          friend.email?.split('@')[0] || 'Friend',
+                          friend.display_name || friend.email?.split('@')[0] || 'Friend',
                           userLocation
                         );
                       } catch (error) {

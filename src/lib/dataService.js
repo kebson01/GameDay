@@ -2,6 +2,8 @@
 // Provides a unified API for all data operations using local storage
 
 import { entities, generateId } from './localStorage';
+import { isCloudEnabled } from './supabase';
+import * as cloud from './cloudEntities';
 
 // Wrapper to make entity methods return Promises (for React Query compatibility)
 function promisify(fn) {
@@ -31,8 +33,10 @@ function createEntityWrapper(entity) {
 
 // Export entity wrappers
 export const Game = createEntityWrapper(entities.Game);
-export const Tailgate = createEntityWrapper(entities.Tailgate);
-export const TailgateGroup = createEntityWrapper(entities.TailgateGroup);
+// Tailgates, groups and live locations are shared between users when cloud
+// accounts are on (Supabase); otherwise they stay on this device.
+export const Tailgate = isCloudEnabled() ? cloud.Tailgate : createEntityWrapper(entities.Tailgate);
+export const TailgateGroup = isCloudEnabled() ? cloud.TailgateGroup : createEntityWrapper(entities.TailgateGroup);
 export const CarLocation = createEntityWrapper(entities.CarLocation);
 export const FriendLocation = createEntityWrapper(entities.FriendLocation);
 export const Prediction = createEntityWrapper(entities.Prediction);
@@ -40,7 +44,7 @@ export const TeamPost = createEntityWrapper(entities.TeamPost);
 export const TeamComment = createEntityWrapper(entities.TeamComment);
 export const Notification = createEntityWrapper(entities.Notification);
 export const School = createEntityWrapper(entities.School);
-export const UserLocation = createEntityWrapper(entities.UserLocation);
+export const UserLocation = isCloudEnabled() ? cloud.UserLocation : createEntityWrapper(entities.UserLocation);
 export const ParkedCar = createEntityWrapper(entities.ParkedCar);
 
 // Sample data is dated relative to today (upcoming Saturdays) so the demo

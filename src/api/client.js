@@ -2,6 +2,8 @@
 // Centralizes access to local auth/storage and sports data "functions".
 
 import { auth } from '@/lib/auth';
+import { isCloudEnabled } from '@/lib/supabase';
+import { uploadPhoto } from '@/lib/cloudEntities';
 import {
   Game,
   Tailgate,
@@ -52,6 +54,8 @@ export const client = {
   integrations: {
     Core: {
       UploadFile: async ({ file }) => {
+        // Cloud: real upload so other users/devices can see the photo
+        if (isCloudEnabled()) return { file_url: await uploadPhoto(file) };
         const file_url = safeObjectUrl(file);
         if (!file_url) throw new Error('UploadFile failed (unsupported file type)');
         return { file_url };
