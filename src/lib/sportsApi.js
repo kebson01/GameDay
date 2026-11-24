@@ -225,6 +225,10 @@ function parseGames(events) {
       away_logo: awayTeam?.team?.logo,
       home_abbrev: homeTeam?.team?.abbreviation,
       away_abbrev: awayTeam?.team?.abbreviation,
+      home_team_id: homeTeam?.team?.id,
+      away_team_id: awayTeam?.team?.id,
+      home_short: homeTeam?.team?.shortDisplayName || homeTeam?.team?.location,
+      away_short: awayTeam?.team?.shortDisplayName || awayTeam?.team?.location,
       home_rank: homeTeam?.curatedRank?.current <= 25 ? homeTeam?.curatedRank?.current : null,
       away_rank: awayTeam?.curatedRank?.current <= 25 ? awayTeam?.curatedRank?.current : null,
       home_record: homeTeam?.records?.[0]?.summary,
@@ -1125,6 +1129,13 @@ export async function findTeamId(name) {
   const needle = name.trim().toLowerCase();
   const popular = POPULAR_TEAMS.find(t => t.name.toLowerCase() === needle);
   if (popular) return popular.id;
+  return (await findTeam(name))?.id || null;
+}
+
+// Full ESPN team record ({ id, displayName, location, abbreviation, ... }) for a name
+export async function findTeam(name) {
+  if (!name) return null;
+  const needle = name.trim().toLowerCase();
   if (!teamIndexPromise) {
     teamIndexPromise = fetch(`${ESPN_BASE}/teams?limit=1000`)
       .then(r => (r.ok ? r.json() : null))
@@ -1137,5 +1148,50 @@ export async function findTeamId(name) {
     teams.find(t => t.location?.toLowerCase() === needle) ||
     teams.find(t => t.shortDisplayName?.toLowerCase() === needle) ||
     teams.find(t => t.displayName?.toLowerCase().startsWith(needle + ' '));
-  return match?.id || null;
+  return match || null;
+}
+
+
+// ---------------------------------------------------------------------------
+// Story feed (Home): news + video stories, each tagged with its team
+// ---------------------------------------------------------------------------
+
+export const teamLogoUrl = (teamId) =>
+  teamId ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${teamId}.png` : null;
+
+export function toStory(article, preferTeamId) {
+  const url = article.links?.web?.href || article.links?.mobile?.href;
+  if (!url || !article.headline) return null;
+  const teamCats = (article.categories || []).filter(c => c.type === 'team' && c.teamId);
+  // In a team's feed, label stories with that team when they're tagged with it
+  const teamCat = teamCats.find(c => preferTeamId && String(c.teamId) === String(preferTeamId)) || teamCats[0];
+  return {
+    id: String(article.id || article.dataSourceIdentifier || url),
+    headline: article.headline,
+    description: article.description && article.description !== article.headline ? article.description : null,
+    image: article.images?.[0]?.url || null,
+    thumbnail: article.images?.[0]?.url || null,
+    url,
+    published: article.published || article.lastModified || null,
+    is_video: article.type === 'Media',
+    premium: !!article.premium,
+    duration_label: formatDuration(article.duration),
+    team: teamCat
+      ? { id: String(teamCat.teamId), name: teamCat.description, logo: teamLogoUrl(teamCat.teamId) }
+      : null,
+    source: 'ESPN',
+  };
+}
+
+export async function fetchStories({ teamId, limit = 40 } = {}) {
+  try {
+    const team = teamId ? `team=${teamId}&` : '';
+    const response = await fetch(`${ESPN_BASE}/news?${team}limit=${limit}`);
+    if (!response.ok) throw new Error('Failed to fetch stories');
+    const data = await response.json();
+    return (data.articles || []).map(a => toStory(a, teamId)).filter(Boolean);
+  } catch (error) {
+    console.error('Error fetching stories:', error);
+    return [];
+  }
 }

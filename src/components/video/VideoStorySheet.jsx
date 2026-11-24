@@ -1,15 +1,18 @@
 import React from 'react';
-import { Play, ExternalLink, Clock } from 'lucide-react';
+import { Play, ExternalLink, Clock, BookOpen } from 'lucide-react';
 import { format } from 'date-fns';
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { openOnEspn } from './openOnEspn';
 
 /**
- * In-app story view for a video. The story (headline, description, thumbnail)
- * stays in GameDay; "Watch" opens ESPN's player over the app.
+ * In-app story view. The story (headline, description, image) stays in GameDay;
+ * for videos "Watch" opens ESPN's player over the app, for articles "Read"
+ * opens the full ESPN story over the app. Articles pass is_video: false.
  */
 export default function VideoStorySheet({ video, open, onOpenChange }) {
   if (!video) return null;
+  const isArticle = video.is_video === false;
+  const image = video.thumbnail || video.image;
   const watch = () => openOnEspn(video.url);
   let published = null;
   try {
@@ -28,14 +31,21 @@ export default function VideoStorySheet({ video, open, onOpenChange }) {
         <div>
         <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-slate-200" aria-hidden="true" />
 
+        {isArticle ? (
+          image ? (
+            <div className="mt-3 aspect-video w-full overflow-hidden bg-ink-900">
+              <img src={image} alt="" className="h-full w-full object-cover" />
+            </div>
+          ) : <div className="h-10" />
+        ) : (
         <button
           type="button"
           onClick={watch}
           className="relative mt-3 block w-full aspect-video bg-ink-900 overflow-hidden"
           aria-label="Play video on ESPN"
         >
-          {video.thumbnail && (
-            <img src={video.thumbnail} alt="" className="w-full h-full object-cover" />
+          {image && (
+            <img src={image} alt="" className="w-full h-full object-cover" />
           )}
           <div className="absolute inset-0 bg-black/25" />
           <span className="absolute inset-0 m-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand text-white shadow-[0_0_24px_-2px_rgba(249,115,22,0.8)]">
@@ -47,10 +57,17 @@ export default function VideoStorySheet({ video, open, onOpenChange }) {
             </span>
           )}
         </button>
+        )}
 
         <div className="px-5 pt-4">
           <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
             <span className="rounded bg-red-600 px-1.5 py-0.5 font-bold text-white">ESPN</span>
+            {video.team?.name && (
+              <span className="flex items-center gap-1 font-semibold text-slate-700">
+                {video.team.logo && <img src={video.team.logo} alt="" className="h-4 w-4 object-contain" />}
+                {video.team.name}
+              </span>
+            )}
             {video.premium && (
               <span className="rounded bg-yellow-400 px-1.5 py-0.5 font-bold text-ink-900">ESPN+</span>
             )}
@@ -66,7 +83,7 @@ export default function VideoStorySheet({ video, open, onOpenChange }) {
             {video.headline}
           </SheetTitle>
           <SheetDescription className={video.description ? 'mt-2 text-base text-slate-600' : 'sr-only'}>
-            {video.description || 'Video highlight from ESPN'}
+            {video.description || (isArticle ? 'Story from ESPN' : 'Video highlight from ESPN')}
           </SheetDescription>
 
           <button
@@ -74,13 +91,15 @@ export default function VideoStorySheet({ video, open, onOpenChange }) {
             onClick={watch}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-full gd-btn-primary py-3.5 font-display text-xl font-bold uppercase tracking-wide"
           >
-            <Play className="h-5 w-5 fill-white" />
-            Watch on ESPN
+            {isArticle ? <BookOpen className="h-5 w-5" /> : <Play className="h-5 w-5 fill-white" />}
+            {isArticle ? 'Read full story on ESPN' : 'Watch on ESPN'}
             <ExternalLink className="h-4 w-4 opacity-80" />
           </button>
           <p className="mt-2 text-center text-xs text-slate-500">
-            ESPN's player opens over GameDay. Close it to come back to this story.
-            {video.premium ? ' This video needs an ESPN+ login.' : ''}
+            {isArticle
+              ? 'The full story opens over GameDay. Close it to come back here.'
+              : "ESPN's player opens over GameDay. Close it to come back to this story."}
+            {video.premium ? (isArticle ? ' This story needs an ESPN+ login.' : ' This video needs an ESPN+ login.') : ''}
           </p>
         </div>
         </div>

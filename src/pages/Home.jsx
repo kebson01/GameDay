@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { client } from '@/api/client';
-import { fetchScoreboard } from '@/lib/sportsApi';
+import { fetchScoreboard, fetchStories, teamLogoUrl } from '@/lib/sportsApi';
 import { useQuery } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
 import { format, parseISO, isToday, startOfToday } from 'date-fns';
@@ -27,7 +27,12 @@ import {
   StoriesSkeleton,
 } from '@/components/common/LoadingSkeleton';
 import VideoHighlights from '@/components/video/VideoHighlights';
-import { fetchVideoNews, findTeamId } from '@/lib/sportsApi';
+import VideoStorySheet from '@/components/video/VideoStorySheet';
+import TeamsRow from '@/components/home/TeamsRow';
+import ScoresCarousel from '@/components/home/ScoresCarousel';
+import StoryCard from '@/components/home/StoryCard';
+import TopHeadlines from '@/components/home/TopHeadlines';
+import { fetchVideoNews, findTeamId, findTeam } from '@/lib/sportsApi';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -37,6 +42,8 @@ export default function Home() {
   const [authFeature, setAuthFeature] = useState('');
   const [viewingTeam, setViewingTeam] = useState(null);
   const [viewingArticle, setViewingArticle] = useState(null);
+  const [selectedTeamId, setSelectedTeamId] = useState(null); // null = All
+  const [openStory, setOpenStory] = useState(null);
   
   useEffect(() => {
     client.auth.me()
@@ -70,9 +77,14 @@ export default function Home() {
     staleTime: 30000,
   });
   
-  // Filter to show upcoming and live games first
-  const games = allGames.filter(g => g.status === 'upcoming' || g.status === 'live').slice(0, 5);
-  
+  // Score cards: live first, then upcoming, then finals; filtered to the selected team
+  const statusOrder = { live: 0, upcoming: 1, final: 2 };
+  const scoreGames = allGames
+    .filter(g => !selectedTeamId || g.home_team_id === selectedTeamId || g.away_team_id === selectedTeamId)
+    .slice()
+    .sort((a, b) => (statusOrder[a.status] ?? 3) - (statusOrder[b.status] ?? 3))
+    .slice(0, 12);
+
   // Fetch public tailgates
   const { data: tailgates = [], isLoading: tailgatesLoading } = useQuery({
     queryKey: ['tailgates'],
@@ -94,17 +106,46 @@ export default function Home() {
     enabled: !!user,
   });
   
-  const nextGame = games[0];
-
-  // Video highlights: favorite teams' clips first, then the latest college football videos
+  // Followed teams for the top row (names in the profile -> ESPN ids + logos)
   const favoriteTeams = user?.favorite_teams || [];
-  const { data: highlights = [], isLoading: highlightsLoading } = useQuery({
-    queryKey: ['home-highlights', favoriteTeams.slice(0, 2).join('|')],
+  const { data: followedTeams = [] } = useQuery({
+    queryKey: ['followed-teams', favoriteTeams.join('|')],
     queryFn: async () => {
-      const teamIds = (await Promise.all(favoriteTeams.slice(0, 2).map(findTeamId))).filter(Boolean);
+      const teams = await Promise.all(favoriteTeams.map(findTeam));
+      return favoriteTeams
+        .map((name, i) => teams[i] && {
+          id: String(teams[i].id),
+          name,
+          short: teams[i].location || teams[i].shortDisplayName || name, // "Alabama", "Miami"
+          logo: teamLogoUrl(teams[i].id),
+        })
+        .filter(Boolean);
+    },
+    enabled: favoriteTeams.length > 0,
+    staleTime: Infinity,
+  });
+  const selectedTeam = followedTeams.find(t => t.id === selectedTeamId) || null;
+
+  // Story feed (all college football, or the selected team)
+  const { data: stories = [], isLoading: storiesLoading } = useQuery({
+    queryKey: ['home-stories', selectedTeamId || 'all'],
+    queryFn: () => fetchStories({ teamId: selectedTeamId, limit: 40 }),
+    staleTime: 120000,
+  });
+  const cardStories = stories.filter(st => st.image).slice(0, 7);
+  const cardIds = new Set(cardStories.map(st => st.id));
+  const headlineStories = stories.filter(st => !cardIds.has(st.id)).slice(0, 7);
+
+  // Video highlights row: selected team, else favorite teams first, then everything
+  const { data: highlights = [], isLoading: highlightsLoading } = useQuery({
+    queryKey: ['home-highlights', selectedTeamId || favoriteTeams.slice(0, 2).join('|')],
+    queryFn: async () => {
+      const teamIds = selectedTeamId
+        ? [selectedTeamId]
+        : (await Promise.all(favoriteTeams.slice(0, 2).map(findTeamId))).filter(Boolean);
       const lists = await Promise.all([
         ...teamIds.map(teamId => fetchVideoNews({ teamId, limit: 25 })),
-        fetchVideoNews({ limit: 50 }),
+        ...(selectedTeamId ? [] : [fetchVideoNews({ limit: 50 })]),
       ]);
       const seen = new Set();
       return lists.flat().filter(v => (seen.has(v.url) ? false : seen.add(v.url))).slice(0, 10);
@@ -129,29 +170,36 @@ export default function Home() {
   return (
     <div className="gd-page !pb-24">
       {/* Header */}
-      <div className="gd-header px-4 pt-12 pb-4 sticky top-0 z-10 shadow-sm">
+      <div className="gd-header px-4 pt-12 pb-3 sticky top-0 z-20 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🏈</span>
             <h1 className="text-2xl font-bold">GameDay</h1>
           </div>
           <div className="flex items-center gap-3">
-            <button className="relative p-2 hover:bg-white/20 rounded-full transition-colors">
+            <button className="relative p-2 hover:bg-white/20 rounded-full transition-colors" aria-label="Notifications">
               <Bell className="w-5 h-5" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-600 rounded-full" />
             </button>
             <button 
               className="p-2 hover:bg-white/20 rounded-full transition-colors"
               onClick={() => navigate(createPageUrl('Settings'))}
+              aria-label="Settings"
             >
               <Menu className="w-5 h-5" />
             </button>
           </div>
         </div>
+        <TeamsRow
+          teams={followedTeams}
+          selectedId={selectedTeamId}
+          onSelect={setSelectedTeamId}
+          onEdit={() => navigate(createPageUrl('DiscoverTeams'))}
+        />
       </div>
 
       {/* Instagram-style Stories - Groups */}
-      {user && (
+      {user && (groupsLoading || groups.length > 0) && (
         <div className="px-4 py-4 border-b border-gray-100 overflow-x-auto">
           {groupsLoading ? (
             <StoriesSkeleton count={4} />
@@ -178,22 +226,38 @@ export default function Home() {
                 </button>
               ))}
             </div>
-          ) : (
-            <div className="text-center py-4">
-              <p className="text-gray-500 text-sm">No groups yet</p>
-              <button 
-                className="text-orange-500 text-sm font-medium mt-1"
-                onClick={() => navigate(createPageUrl('FindFriends'))}
-              >
-                Create one →
-              </button>
-            </div>
-          )}
+          ) : null}
         </div>
       )}
       
-      {/* Quick Actions - Ticketmaster style */}
-      <div className="px-4 py-3">
+      {/* Scores */}
+      <section aria-labelledby="home-scores" className="px-4 pt-4">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 id="home-scores" className="text-base font-bold text-slate-700">
+            {selectedTeam ? `${selectedTeam.name} games` : 'College Football'}
+          </h2>
+          <button className="text-orange-500 text-sm font-semibold" onClick={() => navigate(createPageUrl('GameDay'))}>
+            All scores
+          </button>
+        </div>
+        {gamesLoading ? (
+          <div className="-mx-4 flex gap-3 overflow-hidden px-4">
+            {[1, 2].map(i => <Skeleton key={i} className="h-28 w-52 shrink-0 rounded-2xl" />)}
+          </div>
+        ) : scoreGames.length > 0 ? (
+          <ScoresCarousel
+            games={scoreGames}
+            onOpen={(game) => navigate(createPageUrl('LiveGame') + `?gameId=${game.id}&home=${encodeURIComponent(game.home_team)}&away=${encodeURIComponent(game.away_team)}`)}
+          />
+        ) : (
+          <p className="rounded-2xl border border-outline-variant bg-surface-container px-4 py-5 text-sm text-slate-500">
+            {selectedTeam ? `No ${selectedTeam.name} game this week.` : 'No games this week.'}
+          </p>
+        )}
+      </section>
+
+      {/* Quick Actions */}
+      <div className="px-4 py-4">
         <div className="grid grid-cols-5 gap-2">
           {quickActions.map((action, idx) => (
             <button
@@ -208,92 +272,56 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Next Game - Ticketmaster Hero */}
-      {gamesLoading ? (
-        <div className="mx-4 mb-4">
-          <Skeleton className="h-48 w-full rounded-3xl" />
-        </div>
-      ) : nextGame ? (
-        <div className="mx-4 mb-4">
-          <div className="relative h-48 rounded-3xl overflow-hidden shadow-lg">
-            <div className={`absolute inset-0 ${
-              nextGame.status === 'live' 
-                ? 'bg-gradient-to-br from-red-600 via-orange-600 to-yellow-500' 
-                : 'bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600'
-            }`} />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-            <div className="absolute inset-0 flex flex-col justify-end p-5">
-              <div className="flex items-center gap-2 mb-1">
-                {nextGame.status === 'live' ? (
-                  <span className="flex items-center gap-1 text-white text-sm font-bold bg-red-500 px-2 py-0.5 rounded-full">
-                    <span className="w-2 h-2 bg-surface-container rounded-full animate-pulse" />
-                    LIVE NOW
-                  </span>
-                ) : (
-                  <p className="text-white/80 text-sm font-medium">NEXT GAME</p>
-                )}
-              </div>
-              <h2 className="text-white text-xl font-bold mb-1">
-                <button 
-                  className="hover:underline"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setViewingTeam({ id: nextGame.away_team_id, name: nextGame.away_team });
-                  }}
-                >
-                  {nextGame.away_team}
-                </button>
-                {' @ '}
-                <button 
-                  className="hover:underline"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setViewingTeam({ id: nextGame.home_team_id, name: nextGame.home_team });
-                  }}
-                >
-                  {nextGame.home_team}
-                </button>
-              </h2>
-              {nextGame.status === 'live' ? (
-                <p className="text-white text-3xl font-bold mb-2">
-                  {nextGame.away_score} - {nextGame.home_score}
-                  <span className="text-white/80 text-sm ml-2">{nextGame.quarter} {nextGame.time_remaining}</span>
-                </p>
-              ) : (
-                <div className="flex items-center gap-3 text-white/90 text-sm mb-2">
-                  <span>📅 {nextGame.game_date}</span>
-                  <span>⏰ {nextGame.game_time}</span>
-                  {nextGame.tv_network && <span>📺 {nextGame.tv_network}</span>}
-                </div>
-              )}
-              <button 
-                className="mt-2 bg-white text-ink-900 font-bold py-3 px-6 rounded-full text-sm w-full"
-                onClick={() => navigate(createPageUrl('GameDay'))}
-              >
-                {nextGame.status === 'live' ? 'Watch Live Scores' : 'View All Games'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-      
       {/* Main Content */}
       <div className="px-4 space-y-6 pb-24">
-        {/* Video Highlights - story opens in the app, video plays on ESPN */}
-        {(highlightsLoading || highlights.length > 0) && (
-          <section aria-labelledby="home-highlights">
-            <div className="flex items-center justify-between mb-3">
-              <h2 id="home-highlights" className="text-xl font-bold">Highlights</h2>
+        {/* Story feed: stories open in the app; videos/articles play/read on ESPN */}
+        <section aria-label="Stories" className="space-y-4">
+          {storiesLoading ? (
+            [1, 2].map(i => <Skeleton key={i} className="h-96 w-full rounded-2xl" />)
+          ) : cardStories.length === 0 ? (
+            <p className="rounded-2xl border border-outline-variant bg-surface-container px-4 py-8 text-center text-sm text-slate-500">
+              No stories right now. Check back soon.
+            </p>
+          ) : (
+            <>
+              {cardStories.slice(0, 2).map(story => (
+                <StoryCard key={story.id} story={story} onOpen={setOpenStory} />
+              ))}
+
+              {(highlightsLoading || highlights.length > 0) && (
+                <section aria-labelledby="home-highlights" className="pt-2">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 id="home-highlights" className="text-xl font-bold">Highlights</h2>
+                    <button
+                      className="text-orange-500 text-sm font-semibold"
+                      onClick={() => navigate(createPageUrl('News') + '?filter=videos')}
+                    >
+                      See All
+                    </button>
+                  </div>
+                  <VideoHighlights videos={highlights} isLoading={highlightsLoading} layout="rail" />
+                </section>
+              )}
+
+              {cardStories.slice(2, 3).map(story => (
+                <StoryCard key={story.id} story={story} onOpen={setOpenStory} />
+              ))}
+
+              <TopHeadlines stories={headlineStories} onOpen={setOpenStory} />
+
+              {cardStories.slice(3).map(story => (
+                <StoryCard key={story.id} story={story} onOpen={setOpenStory} />
+              ))}
+
               <button
-                className="text-orange-500 text-sm font-semibold"
-                onClick={() => navigate(createPageUrl('News') + '?filter=videos')}
+                className="w-full rounded-full border border-outline-variant bg-surface-container py-3 text-sm font-semibold text-slate-700"
+                onClick={() => navigate(createPageUrl('News'))}
               >
-                See All
+                More news
               </button>
-            </div>
-            <VideoHighlights videos={highlights} isLoading={highlightsLoading} layout="rail" />
-          </section>
-        )}
+            </>
+          )}
+        </section>
 
         {/* Featured Tailgates - Ticketmaster Style */}
         <section>
@@ -422,65 +450,6 @@ export default function Home() {
           )}
         </section>
         
-        {/* Upcoming Games - Ticketmaster List */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-bold">Schedule</h2>
-            <button 
-              className="text-orange-500 text-sm font-semibold"
-              onClick={() => navigate(createPageUrl('Schedule'))}
-            >
-              View All
-            </button>
-          </div>
-          {gamesLoading ? (
-            <div className="space-y-3">
-              <GameCardSkeleton />
-              <GameCardSkeleton />
-              <GameCardSkeleton />
-            </div>
-          ) : games.length > 0 ? (
-            <div className="space-y-3">
-              {games.slice(0, 3).map((game) => (
-                <div key={game.id} className="bg-surface-container border border-gray-200 rounded-2xl p-4 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        {game.status === 'live' && (
-                          <span className="flex items-center gap-1 text-red-500 text-xs font-bold">
-                            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                            LIVE
-                          </span>
-                        )}
-                        <p className="text-sm text-gray-500">{game.game_date} • {game.game_time}</p>
-                      </div>
-                      <p className="font-bold text-lg">{game.away_team} @ {game.home_team}</p>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {game.tv_network && `📺 ${game.tv_network}`}
-                        {game.status === 'live' && ` • ${game.away_score} - ${game.home_score}`}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-center gap-1">
-                      {game.home_logo ? (
-                        <img src={game.home_logo} alt="" className="w-10 h-10 object-contain" />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-lg">
-                          🏈
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 border border-gray-200 rounded-3xl">
-              <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No games scheduled today</p>
-              <p className="text-sm text-gray-400 mt-1">Check back on game day!</p>
-            </div>
-          )}
-        </section>
       </div>
       
       {/* Safety Button */}
@@ -503,6 +472,13 @@ export default function Home() {
         isOpen={!!viewingTeam}
         onClose={() => setViewingTeam(null)}
         onArticleClick={(article) => setViewingArticle(article)}
+      />
+
+      {/* Story sheet (headline stays in the app; full story/video opens on ESPN) */}
+      <VideoStorySheet
+        video={openStory}
+        open={!!openStory}
+        onOpenChange={(open) => !open && setOpenStory(null)}
       />
 
       {/* Article View */}
