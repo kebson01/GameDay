@@ -29,9 +29,23 @@ function getItem(key, defaultValue = null) {
   }
 }
 
+// Writes that cloud sync makes itself are flagged so they don't echo back up
+let suppressChangeEvents = 0;
+export function withoutChangeEvents(fn) {
+  suppressChangeEvents++;
+  try {
+    return fn();
+  } finally {
+    suppressChangeEvents--;
+  }
+}
+
 function setItem(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    if (!suppressChangeEvents && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('gameday:local-change', { detail: { key } }));
+    }
     return true;
   } catch (e) {
     console.error(`Error writing ${key}:`, e);

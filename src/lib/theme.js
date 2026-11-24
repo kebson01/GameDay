@@ -36,7 +36,7 @@ export function applyTheme(pref = getThemePreference()) {
   return resolved;
 }
 
-export function setThemePreference(pref) {
+export function setThemePreference(pref, { fromCloud = false } = {}) {
   try {
     if (pref === 'system') localStorage.removeItem(STORAGE_KEY);
     else localStorage.setItem(STORAGE_KEY, pref);
@@ -44,7 +44,7 @@ export function setThemePreference(pref) {
     // storage unavailable (private mode): still apply for this session
   }
   applyTheme(pref);
-  window.dispatchEvent(new CustomEvent(EVENT, { detail: pref }));
+  window.dispatchEvent(new CustomEvent(EVENT, { detail: { preference: pref, fromCloud } }));
 }
 
 // Call once at startup: follows OS changes while the preference is 'system'.
@@ -53,7 +53,8 @@ export function initTheme() {
   media()?.addEventListener?.('change', () => {
     if (getThemePreference() === 'system') {
       applyTheme('system');
-      window.dispatchEvent(new CustomEvent(EVENT, { detail: 'system' }));
+      // OS change only: nothing to save to the account
+      window.dispatchEvent(new CustomEvent(EVENT, { detail: { preference: 'system', fromCloud: true } }));
     }
   });
 }

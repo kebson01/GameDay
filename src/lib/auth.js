@@ -1,8 +1,12 @@
-// Local Authentication System for GameDay
-// Provides simple user management without external dependencies
+// Authentication for GameDay.
+// With Supabase configured (VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY)
+// accounts live in the cloud and sync across devices (src/lib/cloudAuth.js).
+// Without it, accounts are stored on this device only (the functions below).
 
 import { getItem, setItem, removeItem, STORAGE_KEYS } from './localStorage';
 import { googleSignOut } from './googleAuth';
+import { isCloudEnabled } from './supabase';
+import { cloudRegister, cloudLogin, cloudGoogle, cloudUpdate, cloudLogout } from './cloudAuth';
 
 const AUTH_STORAGE_KEY = 'gameday_auth';
 const USERS_STORAGE_KEY = 'gameday_users';
@@ -156,6 +160,7 @@ export const auth = {
   
   // Login
   login: ({ email, password }) => {
+    if (isCloudEnabled()) return cloudLogin({ email, password });
     return new Promise((resolve, reject) => {
       try {
         const user = login({ email, password });
@@ -168,6 +173,7 @@ export const auth = {
   
   // Register
   register: ({ email, password, full_name }) => {
+    if (isCloudEnabled()) return cloudRegister({ email, password, full_name });
     return new Promise((resolve, reject) => {
       try {
         const user = register({ email, password, full_name });
@@ -179,7 +185,8 @@ export const auth = {
   },
   
   // Sign in with Google (profile from googleAuth.profileFromCredential)
-  signInWithGoogle: (profile) => {
+  signInWithGoogle: (profile, credential) => {
+    if (isCloudEnabled()) return cloudGoogle(credential);
     return new Promise((resolve, reject) => {
       try {
         resolve(signInWithGoogle(profile));
@@ -190,17 +197,18 @@ export const auth = {
   },
 
   // Logout
-  logout: (redirectUrl = import.meta.env.BASE_URL) => {
+  logout: async (redirectUrl = import.meta.env.BASE_URL) => {
     googleSignOut();
-    logout();
+    if (isCloudEnabled()) await cloudLogout();
+    else logout();
     if (redirectUrl) {
       window.location.href = redirectUrl;
     }
-    return Promise.resolve();
   },
   
   // Update user
   updateMe: (updates) => {
+    if (isCloudEnabled()) return cloudUpdate(updates);
     return new Promise((resolve, reject) => {
       try {
         const user = updateUser(updates);

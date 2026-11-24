@@ -13,6 +13,7 @@ import { resolveTheme } from '@/lib/theme';
 export default function AuthModal({ open, onOpenChange, onSuccess, feature = 'this feature' }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState(''); // e.g. "check your email to confirm"
   const [tab, setTab] = useState('login');
   const googleButtonRef = useRef(null);
   const googleEnabled = isGoogleSignInEnabled();
@@ -27,9 +28,9 @@ export default function AuthModal({ open, onOpenChange, onSuccess, feature = 'th
       renderGoogleButton(googleButtonRef.current, {
         theme: resolveTheme() === 'dark' ? 'filled_black' : 'outline',
         text: tab === 'register' ? 'signup_with' : 'continue_with',
-        onProfile: async (profile) => {
+        onProfile: async (profile, credential) => {
           try {
-            const user = await auth.signInWithGoogle(profile);
+            const user = await auth.signInWithGoogle(profile, credential);
             toast.success(`Welcome, ${user.full_name || 'friend'}!`);
             onSuccess?.(user);
             onOpenChange(false);
@@ -58,6 +59,7 @@ export default function AuthModal({ open, onOpenChange, onSuccess, feature = 'th
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
+    setNotice('');
     setIsLoading(true);
     
     try {
@@ -78,6 +80,7 @@ export default function AuthModal({ open, onOpenChange, onSuccess, feature = 'th
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
+    setNotice('');
     setIsLoading(true);
     
     if (registerPassword.length < 6) {
@@ -100,7 +103,13 @@ export default function AuthModal({ open, onOpenChange, onSuccess, feature = 'th
       setRegisterPassword('');
       setRegisterName('');
     } catch (err) {
-      setError(err.message);
+      if (err.code === 'CONFIRM_EMAIL') {
+        setNotice(err.message);
+        setTab('login');
+        setLoginEmail(registerEmail);
+      } else {
+        setError(err.message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -143,6 +152,13 @@ export default function AuthModal({ open, onOpenChange, onSuccess, feature = 'th
             <TabsTrigger value="register">Create Account</TabsTrigger>
           </TabsList>
           
+          {notice && !error && (
+            <div role="status" className="flex items-start gap-2 p-3 mt-4 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+              <Mail className="w-4 h-4 mt-0.5 shrink-0" />
+              {notice}
+            </div>
+          )}
+
           {error && (
             <div className="flex items-center gap-2 p-3 mt-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
               <AlertCircle className="w-4 h-4 shrink-0" />

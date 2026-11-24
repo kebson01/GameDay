@@ -58,7 +58,8 @@ export function profileFromCredential(credential) {
 
 /**
  * Render Google's official button into `element`.
- * onProfile(profile) is called after the user picks an account.
+ * onProfile(profile, credential) is called after the user picks an account
+ * (credential = Google ID token, used to sign in to Supabase).
  */
 export async function renderGoogleButton(element, { onProfile, onError, theme = 'outline', text = 'continue_with' }) {
   if (!isGoogleSignInEnabled() || !element) return;
@@ -67,7 +68,7 @@ export async function renderGoogleButton(element, { onProfile, onError, theme = 
     client_id: GOOGLE_CLIENT_ID,
     callback: (response) => {
       try {
-        onProfile(profileFromCredential(response.credential));
+        onProfile(profileFromCredential(response.credential), response.credential);
       } catch (err) {
         onError?.(err);
       }

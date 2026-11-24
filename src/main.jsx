@@ -4,6 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from '@/App.jsx'
 import '@/index.css'
 import { initTheme } from '@/lib/theme'
+import { isCloudEnabled } from '@/lib/supabase'
+import { initCloudAuth } from '@/lib/cloudAuth'
+import { startCloudSync } from '@/lib/cloudSync'
 
 initTheme()
 
@@ -38,10 +41,25 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
   });
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
-  </React.StrictMode>,
-)
+// After a cloud sync, refetch data shown on screen
+window.addEventListener('gameday:synced', () => queryClient.invalidateQueries())
+
+function render() {
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    </React.StrictMode>,
+  )
+}
+
+// With cloud accounts, load the signed-in profile and synced data before the
+// first render (capped at 2.5s so a slow network never blocks the app).
+if (isCloudEnabled()) {
+  startCloudSync()
+  const timeout = new Promise((resolve) => setTimeout(resolve, 2500))
+  Promise.race([initCloudAuth().catch((err) => console.warn('[GameDay auth]', err)), timeout]).finally(render)
+} else {
+  render()
+}
