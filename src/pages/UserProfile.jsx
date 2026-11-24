@@ -137,8 +137,12 @@ export default function UserProfile() {
 
         {/* Profile Info */}
         <div className="text-center">
-          <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-4xl">
-            {user.full_name?.charAt(0) || '👤'}
+          <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-4xl overflow-hidden">
+            {user.picture ? (
+              <img src={user.picture} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+            ) : (
+              user.full_name?.charAt(0) || '👤'
+            )}
           </div>
           <h1 className="text-2xl font-bold mb-1">{isOwnProfile ? user.full_name : displayEmail}</h1>
           <p className="text-white/80 text-sm mb-4">{user.email}</p>

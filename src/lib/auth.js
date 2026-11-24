@@ -2,6 +2,7 @@
 // Provides simple user management without external dependencies
 
 import { getItem, setItem, removeItem, STORAGE_KEYS } from './localStorage';
+import { googleSignOut } from './googleAuth';
 
 const AUTH_STORAGE_KEY = 'gameday_auth';
 const USERS_STORAGE_KEY = 'gameday_users';
@@ -63,6 +64,10 @@ export function login({ email, password }) {
     throw new Error('No account found with this email');
   }
   
+  if (!user.password && user.google_sub) {
+    throw new Error('This account uses Google sign-in. Tap "Continue with Google".');
+  }
+
   if (user.password !== btoa(password)) {
     throw new Error('Incorrect password');
   }
@@ -71,6 +76,39 @@ export function login({ email, password }) {
   const { password: _, ...userWithoutPassword } = user;
   setItem(AUTH_STORAGE_KEY, userWithoutPassword);
   
+  return userWithoutPassword;
+}
+
+// Sign in with a Google profile (from src/lib/googleAuth.js).
+// Links to an existing account with the same email, or creates one.
+export function signInWithGoogle(profile) {
+  const users = getUsers();
+  const email = profile.email.toLowerCase();
+  let idx = users.findIndex(u => u.google_sub === profile.sub);
+  if (idx === -1) idx = users.findIndex(u => u.email.toLowerCase() === email);
+
+  if (idx === -1) {
+    users.push({
+      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+      email,
+      full_name: profile.name,
+      favorite_teams: [],
+      created_date: new Date().toISOString(),
+    });
+    idx = users.length - 1;
+  }
+
+  users[idx] = {
+    ...users[idx],
+    google_sub: profile.sub,
+    picture: profile.picture || users[idx].picture || null,
+    full_name: users[idx].full_name || profile.name,
+    auth_provider: users[idx].password ? 'password+google' : 'google',
+  };
+  saveUsers(users);
+
+  const { password: _, ...userWithoutPassword } = users[idx];
+  setItem(AUTH_STORAGE_KEY, userWithoutPassword);
   return userWithoutPassword;
 }
 
@@ -140,8 +178,20 @@ export const auth = {
     });
   },
   
+  // Sign in with Google (profile from googleAuth.profileFromCredential)
+  signInWithGoogle: (profile) => {
+    return new Promise((resolve, reject) => {
+      try {
+        resolve(signInWithGoogle(profile));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  },
+
   // Logout
   logout: (redirectUrl = import.meta.env.BASE_URL) => {
+    googleSignOut();
     logout();
     if (redirectUrl) {
       window.location.href = redirectUrl;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,11 +7,44 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Lock, Mail, User, Loader2, AlertCircle } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { toast } from 'sonner';
+import { isGoogleSignInEnabled, renderGoogleButton } from '@/lib/googleAuth';
+import { resolveTheme } from '@/lib/theme';
 
 export default function AuthModal({ open, onOpenChange, onSuccess, feature = 'this feature' }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [tab, setTab] = useState('login');
+  const googleButtonRef = useRef(null);
+  const googleEnabled = isGoogleSignInEnabled();
+
+  // Render Google's button whenever the dialog opens (it lives inside the dialog)
+  useEffect(() => {
+    if (!open || !googleEnabled) return undefined;
+    let cancelled = false;
+    // Wait a tick for the dialog content to mount
+    const t = setTimeout(() => {
+      if (cancelled || !googleButtonRef.current) return;
+      renderGoogleButton(googleButtonRef.current, {
+        theme: resolveTheme() === 'dark' ? 'filled_black' : 'outline',
+        text: tab === 'register' ? 'signup_with' : 'continue_with',
+        onProfile: async (profile) => {
+          try {
+            const user = await auth.signInWithGoogle(profile);
+            toast.success(`Welcome, ${user.full_name || 'friend'}!`);
+            onSuccess?.(user);
+            onOpenChange(false);
+          } catch (err) {
+            setError(err.message);
+          }
+        },
+        onError: (err) => setError(err.message),
+      }).catch((err) => !cancelled && setError(err.message));
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [open, googleEnabled, tab]); // eslint-disable-line react-hooks/exhaustive-deps
   
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -93,6 +126,17 @@ export default function AuthModal({ open, onOpenChange, onSuccess, feature = 'th
           </DialogDescription>
         </DialogHeader>
         
+        {googleEnabled && (
+          <div className="space-y-3">
+            <div ref={googleButtonRef} className="flex min-h-[44px] w-full justify-center" aria-label="Sign in with Google" />
+            <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-slate-500">
+              <span className="h-px flex-1 bg-slate-200" />
+              or use email
+              <span className="h-px flex-1 bg-slate-200" />
+            </div>
+          </div>
+        )}
+
         <Tabs value={tab} onValueChange={setTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="login">Sign In</TabsTrigger>

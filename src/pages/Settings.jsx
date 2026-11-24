@@ -80,6 +80,7 @@ export default function Settings() {
           <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm">
             <div className="flex items-center gap-4">
               <Avatar className="w-16 h-16 border-2 border-white/30">
+                {user.picture && <AvatarImage src={user.picture} alt="" referrerPolicy="no-referrer" />}
                 <AvatarFallback className="bg-orange-500 text-white text-xl font-bold">
                   {initials}
                 </AvatarFallback>
