@@ -6,14 +6,26 @@ import { cn } from '@/lib/utils';
 import { Toaster } from 'sonner';
 import { auth } from '@/lib/auth';
 import OfflineIndicator from '@/components/common/OfflineIndicator';
+import AuthModal from '@/components/auth/AuthModal';
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const [user, setUser] = useState(null);
   
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   useEffect(() => {
-    auth.me().then(setUser).catch(() => {});
-  }, []);
+    auth.me().then(setUser).catch(() => setUser(null));
+  }, [location.pathname]);
+
+  // auth.redirectToLogin() dispatches this event. Home renders its own modal,
+  // so handle it here for every other page (previously nothing happened there).
+  useEffect(() => {
+    if (currentPageName === 'Home') return undefined;
+    const handleShowLogin = () => setShowAuthModal(true);
+    window.addEventListener('gameday:showLogin', handleShowLogin);
+    return () => window.removeEventListener('gameday:showLogin', handleShowLogin);
+  }, [currentPageName]);
   
   const navItems = [
     { name: 'Home', icon: Home, page: 'Home' },
@@ -102,6 +114,18 @@ export default function Layout({ children, currentPageName }) {
       )}
       
       <Toaster position="top-center" richColors />
+
+      {currentPageName !== 'Home' && (
+        <AuthModal
+          open={showAuthModal}
+          onOpenChange={setShowAuthModal}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            // Reload so every page re-reads the signed-in user
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export default function SafetyButton({ onSOS, onCheckIn, className }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -18,18 +19,64 @@ export default function SafetyButton({ onSOS, onCheckIn, className }) {
     { type: 'check_in', icon: Users, label: 'Check In', color: 'bg-green-500 hover:bg-green-600', desc: 'Let everyone know you\'re safe' },
   ];
   
+  // Default behavior when a page doesn't pass onSOS/onCheckIn (no page does today).
+  // Without a backend we can't push to the group, so hand the alert, with a map
+  // link to the user's location, to the phone's share sheet / SMS app.
+  const getLocation = () => new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+    );
+  });
+
+  const defaultSend = async (type, note) => {
+    const label = alertTypes.find(a => a.type === type)?.label || 'Alert';
+    const loc = await getLocation();
+    const text = [
+      `${type === 'sos' ? '🚨 ' : ''}GameDay ${label}`,
+      note?.trim(),
+      loc ? `My location: https://maps.google.com/?q=${loc.lat.toFixed(6)},${loc.lng.toFixed(6)}` : null,
+    ].filter(Boolean).join('\n');
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `GameDay ${label}`, text });
+        toast.success('Alert shared');
+        return;
+      } catch (err) {
+        if (err?.name === 'AbortError') throw err; // user cancelled the share sheet
+      }
+    }
+    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      window.location.href = `sms:?&body=${encodeURIComponent(text)}`;
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Alert copied. Paste it into a message to your group.');
+    } catch {
+      toast.error('Could not share automatically. Message your group directly.');
+    }
+  };
+
   const handleSend = async () => {
     if (!alertType) return;
     setIsSending(true);
     try {
-      if (alertType === 'check_in') {
-        await onCheckIn?.(message);
+      if (alertType === 'check_in' && onCheckIn) {
+        await onCheckIn(message);
+      } else if (alertType !== 'check_in' && onSOS) {
+        await onSOS(alertType, message);
       } else {
-        await onSOS?.(alertType, message);
+        await defaultSend(alertType, message);
       }
       setIsOpen(false);
       setAlertType(null);
       setMessage('');
+    } catch (err) {
+      if (err?.name !== 'AbortError') toast.error('Could not send alert');
     } finally {
       setIsSending(false);
     }
@@ -39,8 +86,9 @@ export default function SafetyButton({ onSOS, onCheckIn, className }) {
     <>
       <button
         onClick={() => setIsOpen(true)}
+        aria-label="SOS safety options"
         className={cn(
-          "fixed bottom-24 right-4 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg flex items-center justify-center hover:scale-110 transition-transform active:scale-95",
+          "fixed bottom-24 right-4 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg flex items-center justify-center hover:scale-110 transition-transform active:scale-95",
           className
         )}
       >
@@ -59,6 +107,14 @@ export default function SafetyButton({ onSOS, onCheckIn, className }) {
             </DialogDescription>
           </DialogHeader>
           
+          <a
+            href="tel:911"
+            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold"
+          >
+            <Phone className="w-5 h-5" />
+            Call 911
+          </a>
+
           {!alertType ? (
             <div className="grid grid-cols-2 gap-3 py-4">
               {alertTypes.map(({ type, icon: Icon, label, color, desc }) => (

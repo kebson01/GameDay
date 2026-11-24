@@ -38,13 +38,36 @@ export default function DiscoverTeams() {
     },
   });
 
+  // Build the team list from ESPN standings (every FBS team), merged with any
+  // locally saved School records (follower counts, colors). Previously only the
+  // local records were shown, which is just the "Demo University" sample.
+  const allSchools = useMemo(() => {
+    const espnTeams = standingsData?.standings || [];
+    if (espnTeams.length === 0) return schools;
+    const localByName = Object.fromEntries(schools.map(s => [s.name?.toLowerCase(), s]));
+    return espnTeams.map(t => {
+      const local = localByName[t.team_name?.toLowerCase()];
+      return {
+        id: local?.id || `espn-${t.team_id}`,
+        espn_id: t.team_id,
+        name: t.team_name,
+        conference: t.conference,
+        logo: t.logo,
+        follower_count: local?.follower_count || 0,
+        primary_color: local?.primary_color,
+        secondary_color: local?.secondary_color,
+        local_id: local?.id,
+      };
+    });
+  }, [schools, standingsData]);
+
   const conferences = useMemo(() => {
-    const confs = new Set(schools.map(s => s.conference).filter(Boolean));
+    const confs = new Set(allSchools.map(s => s.conference).filter(Boolean));
     return ['all', ...Array.from(confs).sort()];
-  }, [schools]);
+  }, [allSchools]);
 
   const filteredSchools = useMemo(() => {
-    let filtered = schools;
+    let filtered = allSchools;
 
     if (selectedConference !== 'all') {
       filtered = filtered.filter(s => s.conference === selectedConference);
@@ -60,14 +83,15 @@ export default function DiscoverTeams() {
     }
 
     return filtered.sort((a, b) => a.name.localeCompare(b.name));
-  }, [schools, selectedConference, searchQuery]);
+  }, [allSchools, selectedConference, searchQuery]);
 
   // Merge school data with standings
   const schoolsWithStats = useMemo(() => {
     if (!standingsData?.standings) return filteredSchools;
 
     return filteredSchools.map(school => {
-      const stats = standingsData.standings.find(s => 
+      const stats = standingsData.standings.find(s => s.team_id && s.team_id === school.espn_id) ||
+        standingsData.standings.find(s => 
         s.team?.toLowerCase().includes(school.name.toLowerCase()) ||
         school.name.toLowerCase().includes(s.team?.toLowerCase())
       );
@@ -91,9 +115,12 @@ export default function DiscoverTeams() {
       await client.auth.updateMe({ favorite_teams: newFavorites });
 
       // Update follower count
-      await client.entities.School.update(team.id, {
-        follower_count: Math.max((team.follower_count || 0) + (isFollowing ? -1 : 1), 0)
-      });
+      const follower_count = Math.max((team.follower_count || 0) + (isFollowing ? -1 : 1), 0);
+      if (team.local_id || !String(team.id).startsWith('espn-')) {
+        await client.entities.School.update(team.local_id || team.id, { follower_count });
+      } else {
+        await client.entities.School.create({ name: team.name, conference: team.conference, follower_count });
+      }
 
       return { isFollowing, teamName: team.name };
     },

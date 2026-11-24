@@ -43,6 +43,15 @@ export const School = createEntityWrapper(entities.School);
 export const UserLocation = createEntityWrapper(entities.UserLocation);
 export const ParkedCar = createEntityWrapper(entities.ParkedCar);
 
+// Sample data is dated relative to today (upcoming Saturdays) so the demo
+// content never shows as stale/past. Returns a local YYYY-MM-DD string.
+function upcomingSaturday(weeksAhead = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7) + weeksAhead * 7);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 // Initialize with sample data if empty
 export function initializeSampleData() {
   // Sample Games
@@ -50,7 +59,7 @@ export function initializeSampleData() {
     const sampleGames = [
       {
         opponent: 'Georgia Bulldogs',
-        date: '2025-09-06',
+        date: upcomingSaturday(0),
         time: '3:30 PM',
         location: 'Home',
         tv_network: 'CBS',
@@ -59,7 +68,7 @@ export function initializeSampleData() {
       },
       {
         opponent: 'LSU Tigers',
-        date: '2025-09-13',
+        date: upcomingSaturday(1),
         time: '7:00 PM',
         location: 'Away',
         tv_network: 'ESPN',
@@ -68,7 +77,7 @@ export function initializeSampleData() {
       },
       {
         opponent: 'Tennessee Volunteers',
-        date: '2025-09-20',
+        date: upcomingSaturday(2),
         time: '12:00 PM',
         location: 'Home',
         tv_network: 'ABC',
@@ -77,7 +86,7 @@ export function initializeSampleData() {
       },
       {
         opponent: 'Auburn Tigers',
-        date: '2025-09-27',
+        date: upcomingSaturday(3),
         time: '3:30 PM',
         location: 'Home',
         tv_network: 'CBS',
@@ -86,7 +95,7 @@ export function initializeSampleData() {
       },
       {
         opponent: 'Texas A&M Aggies',
-        date: '2025-10-04',
+        date: upcomingSaturday(4),
         time: '7:00 PM',
         location: 'Away',
         tv_network: 'ESPN',
@@ -106,7 +115,7 @@ export function initializeSampleData() {
         description: "Join us for the ultimate pre-game party! We've got BBQ, cold drinks, and great company. All fans welcome!",
         host_name: "John Smith",
         host_email: "demo@gameday.app",
-        game_date: '2025-09-06',
+        game_date: upcomingSaturday(0),
         start_time: '10:00 AM',
         end_time: '2:30 PM',
         location: {
@@ -123,7 +132,7 @@ export function initializeSampleData() {
         description: "Best burgers in town! Family friendly atmosphere with games for kids.",
         host_name: "Mike Johnson",
         host_email: "mike@gameday.app",
-        game_date: '2025-09-06',
+        game_date: upcomingSaturday(0),
         start_time: '9:00 AM',
         end_time: '2:00 PM',
         location: {
@@ -140,7 +149,7 @@ export function initializeSampleData() {
         description: "Get hyped for the big game! Live music, face painting, and more!",
         host_name: "Sarah Davis",
         host_email: "sarah@gameday.app",
-        game_date: '2025-09-13',
+        game_date: upcomingSaturday(1),
         start_time: '4:00 PM',
         end_time: '6:30 PM',
         location: {

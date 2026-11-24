@@ -48,11 +48,11 @@ export default function TeamPage() {
   });
 
   // Filter games for this team
-  const teamGames = (gamesData?.data?.games || []).filter(game =>
+  const teamGames = (gamesData?.data?.games || []).filter(game => teamName && (
     game.home_team?.toLowerCase().includes(teamName.toLowerCase()) ||
     game.away_team?.toLowerCase().includes(teamName.toLowerCase()) ||
     game.opponent?.toLowerCase().includes(teamName.toLowerCase())
-  );
+  ));
 
   const upcomingGames = teamGames.filter(g => g.status === 'upcoming' || g.status === 'live');
   const recentGames = teamGames.filter(g => g.status === 'final').slice(0, 3);
@@ -68,7 +68,10 @@ export default function TeamPage() {
   });
 
   // Fetch head-to-head for next opponent
-  const nextOpponent = upcomingGames[0]?.opponent || upcomingGames[0]?.away_team || upcomingGames[0]?.home_team;
+  const nextGame = upcomingGames[0];
+  const isTeam = (name) => name?.toLowerCase().includes(teamName?.toLowerCase());
+  const nextOpponent = nextGame?.opponent
+    || (nextGame && (isTeam(nextGame.home_team) ? nextGame.away_team : nextGame.home_team));
   const { data: headToHead, isLoading: h2hLoading } = useQuery({
     queryKey: ['head-to-head', teamName, nextOpponent],
     queryFn: async () => {

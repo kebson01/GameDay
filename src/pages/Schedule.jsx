@@ -204,7 +204,7 @@ export default function Schedule() {
 
         {/* Season Year Selector */}
         <div className="flex gap-2 mb-3">
-          {[2024, 2025].map(year => (
+          {[getCurrentSeason() - 2, getCurrentSeason() - 1, getCurrentSeason()].map(year => (
             <button
               key={year}
               onClick={() => {

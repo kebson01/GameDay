@@ -143,7 +143,9 @@ export default function GameDayAssistant() {
             animate={{ scale: 1 }}
             exit={{ scale: 0 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-24 right-4 w-14 h-14 bg-gradient-to-r from-orange-500 to-red-600 rounded-full shadow-lg flex items-center justify-center z-40"
+            aria-label="Ask the GameDay AI assistant"
+            // Sits above the SOS button (bottom-24) so it never covers it
+            className="fixed bottom-[10.5rem] right-4 w-14 h-14 bg-gradient-to-r from-orange-500 to-red-600 rounded-full shadow-lg flex items-center justify-center z-40"
           >
             <Sparkles className="w-6 h-6 text-white" />
           </motion.button>

@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import SafetyButton from '@/components/common/SafetyButton';
 import GameDayAssistant from '@/components/ai/GameDayAssistant';
+import LoginPrompt from '@/components/auth/LoginPrompt';
 
 const TAILGATE_TYPES = [
   { value: 'open', label: 'Open to All' },

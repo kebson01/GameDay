@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import SafetyButton from '@/components/common/SafetyButton';
+import { getCurrentSeason } from '@/lib/sportsApi';
 
 const CONFERENCES = [
   { id: 'all', name: 'All Teams' },
@@ -71,7 +72,7 @@ export default function Standings() {
           </Button>
           <div>
             <h1 className="text-xl font-bold">College Football Standings</h1>
-            <p className="text-white/80 text-sm">2024-2025 Season</p>
+            <p className="text-white/80 text-sm">{getCurrentSeason()} Season</p>
           </div>
         </div>
       </div>

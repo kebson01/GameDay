@@ -4,7 +4,7 @@ import { client } from '@/api/client';
 import { fetchScoreboard } from '@/lib/sportsApi';
 import { useQuery } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
-import { format } from 'date-fns';
+import { format, parseISO, isToday, startOfToday } from 'date-fns';
 import { 
   Users, MapPin, Car, Calendar, PartyPopper, 
   Navigation, Shield, ChevronRight, Bell, Menu, Star
@@ -74,7 +74,15 @@ export default function Home() {
   // Fetch public tailgates
   const { data: tailgates = [], isLoading: tailgatesLoading } = useQuery({
     queryKey: ['tailgates'],
-    queryFn: () => client.entities.Tailgate.filter({ is_public: true }, '-created_date', 4),
+    // Soonest upcoming public tailgates first (past ones are hidden)
+    queryFn: async () => {
+      const all = await client.entities.Tailgate.filter({ is_public: true });
+      const today = startOfToday();
+      return all
+        .filter(t => !t.game_date || parseISO(t.game_date) >= today)
+        .sort((a, b) => (a.game_date || '9999').localeCompare(b.game_date || '9999'))
+        .slice(0, 4);
+    },
   });
   
   // Fetch user's groups
@@ -85,6 +93,12 @@ export default function Home() {
   });
   
   const nextGame = games[0];
+
+  // Tailgate dates are stored as "YYYY-MM-DD"; parse them as local dates
+  // (new Date('2025-09-06') is UTC midnight, which shows the previous day in US time zones).
+  const tailgateDate = (t) => (t?.game_date ? parseISO(t.game_date) : null);
+  const featuredDate = tailgateDate(tailgates[0]);
+  const featuredLabel = featuredDate && isToday(featuredDate) ? 'Today' : 'Next Up';
   
   const quickActions = [
     { icon: Users, label: 'Find Friends', color: 'orange', onClick: () => requireAuth('friend tracking', () => navigate(createPageUrl('FindFriends'))) },
@@ -272,7 +286,7 @@ export default function Home() {
               {/* Today's Featured Tailgate */}
               {tailgates[0] && (
                 <div className="mb-4">
-                  <p className="text-sm font-semibold text-gray-900 mb-2">Today</p>
+                  <p className="text-sm font-semibold text-gray-900 mb-2">{featuredLabel}</p>
                   <button
                     onClick={() => navigate(createPageUrl('TailgateDetail') + `?id=${tailgates[0].id}`)}
                     className="w-full bg-white rounded-2xl shadow-md overflow-hidden"
@@ -284,8 +298,8 @@ export default function Home() {
                         <div className="w-full h-full bg-gradient-to-br from-purple-400 via-pink-400 to-orange-400" />
                       )}
                       <div className="absolute top-3 left-3 bg-white rounded-xl px-3 py-2 shadow-lg">
-                        <p className="text-2xl font-bold text-orange-600">{tailgates[0].game_date ? format(new Date(tailgates[0].game_date), 'd') : '23'}</p>
-                        <p className="text-xs font-semibold text-orange-600 uppercase">{tailgates[0].game_date ? format(new Date(tailgates[0].game_date), 'MMM') : 'AUG'}</p>
+                        <p className="text-2xl font-bold text-orange-600">{tailgateDate(tailgates[0]) ? format(tailgateDate(tailgates[0]), 'd') : '--'}</p>
+                        <p className="text-xs font-semibold text-orange-600 uppercase">{tailgateDate(tailgates[0]) ? format(tailgateDate(tailgates[0]), 'MMM') : 'TBD'}</p>
                       </div>
                     </div>
                     <div className="p-4">
@@ -296,7 +310,7 @@ export default function Home() {
                         </div>
                         <div className="flex items-center gap-1 text-orange-500 text-sm">
                           <MapPin className="w-4 h-4" />
-                          <span>{tailgates[0].location?.lot_name || '1 km'}</span>
+                          <span>{tailgates[0].location?.lot_name || 'Location TBD'}</span>
                         </div>
                       </div>
                       <div className="flex items-center justify-between">
@@ -306,7 +320,7 @@ export default function Home() {
                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-red-600 border-2 border-white" />
                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-teal-600 border-2 border-white" />
                           </div>
-                          <span className="text-sm text-orange-500 font-medium">+{tailgates[0].rsvp_count || 12} Attending</span>
+                          <span className="text-sm text-orange-500 font-medium">{tailgates[0].rsvp_count || 0} Attending</span>
                         </div>
                         <span className="bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 py-2 rounded-full font-semibold text-sm">
                           Join
@@ -335,8 +349,8 @@ export default function Home() {
                             <div className="w-full h-full bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400" />
                           )}
                           <div className="absolute top-2 left-2 bg-white rounded-lg px-2 py-1 shadow">
-                            <p className="text-lg font-bold text-orange-600">{tailgate.game_date ? format(new Date(tailgate.game_date), 'd') : '23'}</p>
-                            <p className="text-[10px] font-semibold text-orange-600 uppercase leading-none">{tailgate.game_date ? format(new Date(tailgate.game_date), 'MMM') : 'AUG'}</p>
+                            <p className="text-lg font-bold text-orange-600">{tailgateDate(tailgate) ? format(tailgateDate(tailgate), 'd') : '--'}</p>
+                            <p className="text-[10px] font-semibold text-orange-600 uppercase leading-none">{tailgateDate(tailgate) ? format(tailgateDate(tailgate), 'MMM') : 'TBD'}</p>
                           </div>
                         </div>
                         <div className="p-3">
@@ -347,10 +361,10 @@ export default function Home() {
                               <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 border border-white" />
                               <div className="w-5 h-5 rounded-full bg-gradient-to-br from-pink-400 to-red-600 border border-white" />
                             </div>
-                            <span className="text-xs text-gray-500">+{tailgate.rsvp_count || 12}</span>
+                            <span className="text-xs text-gray-500">{tailgate.rsvp_count || 0}</span>
                             <div className="flex items-center gap-1 text-orange-500 text-xs">
                               <MapPin className="w-3 h-3" />
-                              <span>1 km</span>
+                              <span className="truncate max-w-[4.5rem]">{tailgate.location?.lot_name || 'TBD'}</span>
                             </div>
                           </div>
                         </div>

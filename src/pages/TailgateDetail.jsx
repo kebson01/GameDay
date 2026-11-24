@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import MapView, { tailgateIcon } from '@/components/map/MapView';
 import SafetyButton from '@/components/common/SafetyButton';
 import LoginPrompt from '@/components/auth/LoginPrompt';
@@ -257,7 +257,7 @@ export default function TailgateDetail() {
               </div>
               <div>
                 <p className="text-sm text-slate-500">Game Day</p>
-                <p className="font-semibold">{format(new Date(tailgate.game_date), 'EEEE, MMMM d, yyyy')}</p>
+                <p className="font-semibold">{tailgate.game_date ? format(parseISO(tailgate.game_date), 'EEEE, MMMM d, yyyy') : 'Date TBD'}</p>
               </div>
             </div>
           )}

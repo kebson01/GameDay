@@ -553,25 +553,59 @@ export async function searchTeams(query) {
 }
 
 // Fetch standings
-export async function fetchStandings() {
+// ESPN's standings live under /apis/v2 (not /apis/site/v2, which returns 404).
+// Returns a flat list of teams, each tagged with its conference short name
+// (e.g. "SEC", "Big Ten", "Conference USA") so pages can group/filter it.
+const STANDINGS_URL = 'https://site.api.espn.com/apis/v2/sports/football/college-football/standings';
+const CONFERENCE_NAME_OVERRIDES = { CUSA: 'Conference USA', 'FBS Indep.': 'Independent' };
+
+function parseRecord(summary) {
+  const [w, l] = String(summary || '').split('-').map(n => parseInt(n, 10));
+  return { wins: Number.isFinite(w) ? w : 0, losses: Number.isFinite(l) ? l : 0 };
+}
+
+export async function fetchStandings(season) {
   try {
-    const response = await fetch(`${ESPN_BASE}/standings`);
+    const url = season ? `${STANDINGS_URL}?season=${season}` : STANDINGS_URL;
+    const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch standings');
     const data = await response.json();
-    
-    return data.children?.map(conference => ({
-      name: conference.name,
-      abbreviation: conference.abbreviation,
-      teams: conference.standings?.entries?.map(entry => ({
-        team: entry.team?.displayName,
-        team_id: entry.team?.id,
-        logo: entry.team?.logos?.[0]?.href,
-        overall_record: entry.stats?.find(s => s.name === 'overall')?.displayValue,
-        conference_record: entry.stats?.find(s => s.name === 'vs. Conf.')?.displayValue || entry.stats?.find(s => s.name === 'leagueRecord')?.displayValue,
-        wins: entry.stats?.find(s => s.name === 'wins')?.value,
-        losses: entry.stats?.find(s => s.name === 'losses')?.value,
-      })) || [],
-    })) || [];
+
+    const teams = [];
+    const collect = (group, conferenceName) => {
+      (group.standings?.entries || []).forEach(entry => {
+        const statByType = (type) => entry.stats?.find(s => s.type === type)?.displayValue;
+        const overall = parseRecord(statByType('total'));
+        const conf = parseRecord(statByType('vsconf'));
+        const games = overall.wins + overall.losses;
+        teams.push({
+          team: entry.team?.displayName,
+          team_name: entry.team?.displayName,
+          team_id: entry.team?.id,
+          abbreviation: entry.team?.abbreviation,
+          logo: entry.team?.logos?.[0]?.href,
+          conference: conferenceName,
+          wins: overall.wins,
+          losses: overall.losses,
+          overall_record: statByType('total'),
+          conference_wins: conf.wins,
+          conference_losses: conf.losses,
+          conference_record: statByType('vsconf'),
+          win_percentage: games ? overall.wins / games : 0,
+          streak: statByType('streak'),
+          points_for: Number(statByType('pointsfor')) || 0,
+          points_against: Number(statByType('pointsagainst')) || 0,
+        });
+      });
+      // Some conferences (e.g. Sun Belt) are split into divisions
+      (group.children || []).forEach(child => collect(child, conferenceName));
+    };
+
+    (data.children || []).forEach(conference => {
+      const short = conference.shortName || conference.abbreviation || conference.name;
+      collect(conference, CONFERENCE_NAME_OVERRIDES[short] || short);
+    });
+    return teams;
   } catch (error) {
     console.error('Error fetching standings:', error);
     return [];
@@ -592,7 +626,7 @@ export const CONFERENCES = [
 export const POPULAR_TEAMS = [
   // SEC (16 teams)
   { id: '333', name: 'Alabama Crimson Tide', abbreviation: 'ALA', conference: 'SEC' },
-  { id: '57', name: 'Auburn Tigers', abbreviation: 'AUB', conference: 'SEC' },
+  { id: '2', name: 'Auburn Tigers', abbreviation: 'AUB', conference: 'SEC' },
   { id: '8', name: 'Arkansas Razorbacks', abbreviation: 'ARK', conference: 'SEC' },
   { id: '57', name: 'Florida Gators', abbreviation: 'FLA', conference: 'SEC' },
   { id: '61', name: 'Georgia Bulldogs', abbreviation: 'UGA', conference: 'SEC' },
@@ -612,14 +646,14 @@ export const POPULAR_TEAMS = [
   { id: '356', name: 'Illinois Fighting Illini', abbreviation: 'ILL', conference: 'Big Ten' },
   { id: '84', name: 'Indiana Hoosiers', abbreviation: 'IND', conference: 'Big Ten' },
   { id: '2294', name: 'Iowa Hawkeyes', abbreviation: 'IOWA', conference: 'Big Ten' },
-  { id: '276', name: 'Maryland Terrapins', abbreviation: 'MD', conference: 'Big Ten' },
+  { id: '120', name: 'Maryland Terrapins', abbreviation: 'MD', conference: 'Big Ten' },
   { id: '130', name: 'Michigan Wolverines', abbreviation: 'MICH', conference: 'Big Ten' },
   { id: '127', name: 'Michigan State Spartans', abbreviation: 'MSU', conference: 'Big Ten' },
   { id: '135', name: 'Minnesota Golden Gophers', abbreviation: 'MINN', conference: 'Big Ten' },
   { id: '158', name: 'Nebraska Cornhuskers', abbreviation: 'NEB', conference: 'Big Ten' },
   { id: '77', name: 'Northwestern Wildcats', abbreviation: 'NW', conference: 'Big Ten' },
   { id: '194', name: 'Ohio State Buckeyes', abbreviation: 'OSU', conference: 'Big Ten' },
-  { id: '2509', name: 'Oregon Ducks', abbreviation: 'ORE', conference: 'Big Ten' },
+  { id: '2483', name: 'Oregon Ducks', abbreviation: 'ORE', conference: 'Big Ten' },
   { id: '213', name: 'Penn State Nittany Lions', abbreviation: 'PSU', conference: 'Big Ten' },
   { id: '2509', name: 'Purdue Boilermakers', abbreviation: 'PUR', conference: 'Big Ten' },
   { id: '164', name: 'Rutgers Scarlet Knights', abbreviation: 'RUT', conference: 'Big Ten' },
@@ -636,13 +670,13 @@ export const POPULAR_TEAMS = [
   { id: '2132', name: 'Cincinnati Bearcats', abbreviation: 'CIN', conference: 'Big 12' },
   { id: '38', name: 'Colorado Buffaloes', abbreviation: 'COLO', conference: 'Big 12' },
   { id: '248', name: 'Houston Cougars', abbreviation: 'HOU', conference: 'Big 12' },
-  { id: '2306', name: 'Iowa State Cyclones', abbreviation: 'ISU', conference: 'Big 12' },
+  { id: '66', name: 'Iowa State Cyclones', abbreviation: 'ISU', conference: 'Big 12' },
   { id: '2305', name: 'Kansas Jayhawks', abbreviation: 'KU', conference: 'Big 12' },
   { id: '2306', name: 'Kansas State Wildcats', abbreviation: 'KSU', conference: 'Big 12' },
   { id: '197', name: 'Oklahoma State Cowboys', abbreviation: 'OKST', conference: 'Big 12' },
-  { id: '2641', name: 'TCU Horned Frogs', abbreviation: 'TCU', conference: 'Big 12' },
-  { id: '2628', name: 'Texas Tech Red Raiders', abbreviation: 'TTU', conference: 'Big 12' },
-  { id: '2638', name: 'UCF Knights', abbreviation: 'UCF', conference: 'Big 12' },
+  { id: '2628', name: 'TCU Horned Frogs', abbreviation: 'TCU', conference: 'Big 12' },
+  { id: '2641', name: 'Texas Tech Red Raiders', abbreviation: 'TTU', conference: 'Big 12' },
+  { id: '2116', name: 'UCF Knights', abbreviation: 'UCF', conference: 'Big 12' },
   { id: '254', name: 'Utah Utes', abbreviation: 'UTAH', conference: 'Big 12' },
   { id: '277', name: 'West Virginia Mountaineers', abbreviation: 'WVU', conference: 'Big 12' },
   
@@ -658,7 +692,7 @@ export const POPULAR_TEAMS = [
   { id: '152', name: 'NC State Wolfpack', abbreviation: 'NCSU', conference: 'ACC' },
   { id: '153', name: 'North Carolina Tar Heels', abbreviation: 'UNC', conference: 'ACC' },
   { id: '221', name: 'Pittsburgh Panthers', abbreviation: 'PITT', conference: 'ACC' },
-  { id: '2507', name: 'SMU Mustangs', abbreviation: 'SMU', conference: 'ACC' },
+  { id: '2567', name: 'SMU Mustangs', abbreviation: 'SMU', conference: 'ACC' },
   { id: '24', name: 'Stanford Cardinal', abbreviation: 'STAN', conference: 'ACC' },
   { id: '183', name: 'Syracuse Orange', abbreviation: 'SYR', conference: 'ACC' },
   { id: '258', name: 'Virginia Cavaliers', abbreviation: 'UVA', conference: 'ACC' },
@@ -671,13 +705,13 @@ export const POPULAR_TEAMS = [
   { id: '36', name: 'Colorado State Rams', abbreviation: 'CSU', conference: 'Mountain West' },
   { id: '278', name: 'Fresno State Bulldogs', abbreviation: 'FRES', conference: 'Mountain West' },
   { id: '62', name: 'Hawaii Rainbow Warriors', abbreviation: 'HAW', conference: 'Mountain West' },
-  { id: '2426', name: 'Nevada Wolf Pack', abbreviation: 'NEV', conference: 'Mountain West' },
+  { id: '2440', name: 'Nevada Wolf Pack', abbreviation: 'NEV', conference: 'Mountain West' },
   { id: '167', name: 'New Mexico Lobos', abbreviation: 'UNM', conference: 'Mountain West' },
   { id: '21', name: 'San Diego State Aztecs', abbreviation: 'SDSU', conference: 'Mountain West' },
   { id: '23', name: 'San Jose State Spartans', abbreviation: 'SJSU', conference: 'Mountain West' },
-  { id: '2638', name: 'UNLV Rebels', abbreviation: 'UNLV', conference: 'Mountain West' },
+  { id: '2439', name: 'UNLV Rebels', abbreviation: 'UNLV', conference: 'Mountain West' },
   { id: '328', name: 'Utah State Aggies', abbreviation: 'USU', conference: 'Mountain West' },
-  { id: '2704', name: 'Wyoming Cowboys', abbreviation: 'WYO', conference: 'Mountain West' },
+  { id: '2751', name: 'Wyoming Cowboys', abbreviation: 'WYO', conference: 'Mountain West' },
   
   // Independent (5 teams)
   { id: '87', name: 'Notre Dame Fighting Irish', abbreviation: 'ND', conference: 'Independent' },

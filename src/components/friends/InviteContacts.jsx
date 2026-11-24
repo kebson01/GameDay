@@ -100,7 +100,7 @@ export default function InviteContacts({ groupId, groupName, inviteCode }) {
   };
 
   // Use selected contact
-  const useSelectedContact = (contact) => {
+  const applySelectedContact = (contact) => {
     setName(contact.name);
     if (contact.email && inviteMethod === 'email') {
       setEmail(contact.email);
@@ -454,7 +454,7 @@ export default function InviteContacts({ groupId, groupName, inviteCode }) {
                   className="flex-1"
                   onClick={() => {
                     if (selectedContacts.length === 1) {
-                      useSelectedContact(selectedContacts[0]);
+                      applySelectedContact(selectedContacts[0]);
                     } else {
                       setShowContactPicker(false);
                     }
