@@ -379,3 +379,42 @@ export function subscribeToTeamPosts(teamName, onChange, onStatus) {
     supabase.removeChannel(channel);
   };
 }
+
+// ---------------------------------------------------------------------------
+// Tailgate crew chat (host + RSVP'd guests only; enforced by RLS)
+// ---------------------------------------------------------------------------
+export const TailgateMessage = {
+  list: async (tailgateId, limit = 100) => {
+    const user = currentUser();
+    const rows = must(
+      await supabase.from('tailgate_messages').select('*').eq('tailgate_id', tailgateId)
+        .order('created_at', { ascending: false }).limit(limit)
+    );
+    return rows.reverse().map(r => ({ ...withDates(r), is_own: Boolean(user?.cloud && r.user_id === user.id) }));
+  },
+  send: async (tailgateId, content) =>
+    withDates(must(await supabase.from('tailgate_messages').insert({ tailgate_id: tailgateId, content }).select().single())),
+  delete: async (id) => {
+    must(await supabase.from('tailgate_messages').delete().eq('id', id));
+    return true;
+  },
+  // Live updates for one tailgate's chat; returns unsubscribe
+  subscribe: (tailgateId, onChange, onStatus) => {
+    const channel = supabase
+      .channel(`tailgate-chat:${tailgateId}:${Math.random().toString(36).slice(2, 8)}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tailgate_messages', filter: `tailgate_id=eq.${tailgateId}` }, onChange)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tailgate_messages' }, onChange)
+      .subscribe((status) => onStatus?.(status === 'SUBSCRIBED'));
+    return () => {
+      onStatus?.(false);
+      supabase.removeChannel(channel);
+    };
+  },
+};
+
+// Ids of tailgates the signed-in user has RSVP'd to
+export async function myTailgateRsvpIds() {
+  const user = currentUser();
+  if (!user?.cloud) return [];
+  return must(await supabase.from('tailgate_rsvps').select('tailgate_id').eq('user_id', user.id)).map(r => r.tailgate_id);
+}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { client } from '@/api/client';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
 import { 
   ArrowLeft, MapPin, Clock, Users, Camera,
@@ -43,11 +43,15 @@ const AMENITIES = [
 
 export default function CreateTailgate() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [photoFile, setPhotoFile] = useState(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  // ?edit=<id>: edit an existing tailgate instead of creating a new one
+  const editId = new URLSearchParams(window.location.search).get('edit');
+  const [existingPhoto, setExistingPhoto] = useState(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -75,6 +79,28 @@ export default function CreateTailgate() {
       setShowLoginPrompt(true);
     });
   }, []);
+
+  // Load the tailgate being edited
+  useEffect(() => {
+    if (!editId) return;
+    client.entities.Tailgate.filter({ id: editId }).then(([t]) => {
+      if (!t) return;
+      setExistingPhoto(t.photo_url || null);
+      setFormData(prev => ({
+        ...prev,
+        name: t.name || '',
+        type: t.type || 'open',
+        description: t.description || '',
+        game_date: t.game_date || prev.game_date,
+        start_time: t.start_time || '',
+        end_time: t.end_time || '',
+        location: { lat: null, lng: null, lot_name: '', description: '', ...(t.location || {}) },
+        is_public: t.is_public !== false,
+        capacity: t.capacity ? String(t.capacity) : '',
+        amenities: t.amenities || [],
+      }));
+    }).catch(() => toast.error('Could not load this tailgate'));
+  }, [editId]);
   
   const getLocation = () => {
     if (!navigator.geolocation) {
@@ -119,10 +145,19 @@ export default function CreateTailgate() {
       if (!formData.name) throw new Error('Name is required');
       if (!formData.location.lat) throw new Error('Location is required');
       
-      let photoUrl = null;
+      let photoUrl = existingPhoto;
       if (photoFile) {
         const { file_url } = await client.integrations.Core.UploadFile({ file: photoFile });
         photoUrl = file_url;
+      }
+
+      if (editId) {
+        const { password: _pw, ...fields } = formData;
+        return client.entities.Tailgate.update(editId, {
+          ...fields,
+          photo_url: photoUrl,
+          capacity: formData.capacity ? parseInt(formData.capacity) : null,
+        });
       }
       
       return client.entities.Tailgate.create({
@@ -136,8 +171,12 @@ export default function CreateTailgate() {
       });
     },
     onSuccess: (tailgate) => {
-      toast.success('Tailgate created!');
-      navigate(createPageUrl('TailgateDetail') + `?id=${tailgate.id}`);
+      toast.success(editId ? 'Tailgate updated!' : 'Tailgate created!');
+      // Show the saved version right away, and refresh cached lists
+      if (tailgate?.id) queryClient.setQueryData(['tailgate', tailgate.id], tailgate);
+      queryClient.invalidateQueries({ queryKey: ['tailgate'] });
+      queryClient.invalidateQueries({ queryKey: ['tailgates'] });
+      navigate(createPageUrl('TailgateDetail') + `?id=${tailgate?.id || editId}`, { replace: !!editId });
     },
     onError: (error) => {
       toast.error(error.message);
@@ -158,7 +197,7 @@ export default function CreateTailgate() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-xl font-bold">Host a Tailgate</h1>
+            <h1 className="text-xl font-bold">{editId ? 'Edit Tailgate' : 'Host a Tailgate'}</h1>
             <p className="text-white/80 text-sm">Share your party with others</p>
           </div>
         </div>
@@ -387,7 +426,8 @@ export default function CreateTailgate() {
             />
           </div>
           
-          {!formData.is_public && (
+          {/* Passcode is set when creating (stored hashed; can't be changed here) */}
+          {!formData.is_public && !editId && (
             <div>
               <Label htmlFor="password">Private Password</Label>
               <Input
@@ -409,7 +449,7 @@ export default function CreateTailgate() {
           disabled={createMutation.isPending}
         >
           <PartyPopper className="w-5 h-5 mr-2" />
-          {createMutation.isPending ? 'Creating...' : 'Create Tailgate'}
+          {createMutation.isPending ? (editId ? 'Saving...' : 'Creating...') : (editId ? 'Save Changes' : 'Create Tailgate')}
         </Button>
         
         {/* AI Help Button */}
