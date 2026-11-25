@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getGuestTeams, saveFavoriteTeams, mergeGuestTeams } from '@/lib/favorites';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { client } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
@@ -19,7 +19,7 @@ import TeamHero from '@/components/teams-v2/TeamHero';
 import ScheduleRow from '@/components/teams-v2/ScheduleRow';
 import StoryList from '@/components/teams-v2/StoryList';
 import { fetchVideoNews, fetchStories, fetchTeamSchedule, fetchStandings, fetchRankings } from '@/lib/sportsApi';
-import { resolveTeam, fetchTeamProfile, summarizeSchedule, isSameTeam, liveGameQuery } from '@/lib/teamData';
+import { resolveTeamById, fetchTeamProfile, summarizeSchedule, isSameTeam, liveGameQuery } from '@/lib/teamData';
 
 const TABS = [
   { id: 'games', label: 'Games', icon: Calendar },
@@ -54,8 +54,15 @@ export default function TeamPage() {
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState('games');
-  const urlParams = new URLSearchParams(window.location.search);
-  const teamName = urlParams.get('team');
+  const [searchParams] = useSearchParams();
+  const teamName = searchParams.get('team');
+  const teamIdParam = searchParams.get('teamId');
+
+  // Back to the Games tab when switching to another team (e.g. tapping an opponent's logo)
+  useEffect(() => {
+    setTab('games');
+    window.scrollTo(0, 0);
+  }, [teamName, teamIdParam]);
 
   useEffect(() => {
     client.auth.me().then(setUser).catch(() => {});
@@ -78,9 +85,9 @@ export default function TeamPage() {
 
   // ESPN identity -> profile (colors, record, standing, next game)
   const { data: espnTeam, isLoading: resolving } = useQuery({
-    queryKey: ['teams-v2', 'resolve', teamName],
-    queryFn: () => resolveTeam(teamName),
-    enabled: !!teamName,
+    queryKey: ['teams-v2', 'resolve', teamName, teamIdParam],
+    queryFn: () => resolveTeamById(teamIdParam, teamName),
+    enabled: !!(teamName || teamIdParam),
     staleTime: Infinity,
   });
   const teamId = espnTeam?.id;
@@ -351,7 +358,7 @@ export default function TeamPage() {
                   {results.length > 0 && (
                     <section className="space-y-2" aria-labelledby="team-results">
                       <SectionTitle id="team-results" aside={`${summary.wins}-${summary.losses}`}>
-                        Results
+                        Past Games
                       </SectionTitle>
                       {results.map(g => <ScheduleRow key={g.id} game={g} onOpen={openScheduleGame} />)}
                     </section>

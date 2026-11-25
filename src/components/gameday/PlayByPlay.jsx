@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Activity, TrendingUp, AlertCircle, Target, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
+const PAGE = 50;
+
 export default function PlayByPlay({ data, isLoading, homeTeam, awayTeam, homeLogo, awayLogo }) {
+  const [visible, setVisible] = useState(PAGE);
+  const [scoringOnly, setScoringOnly] = useState(false);
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -30,7 +34,9 @@ export default function PlayByPlay({ data, isLoading, homeTeam, awayTeam, homeLo
     );
   }
 
-  const { plays, current_drive, game_situation } = data;
+  const { plays: allPlays, current_drive, game_situation } = data;
+  const filteredPlays = scoringOnly ? allPlays.filter(p => p.is_scoring) : allPlays;
+  const plays = filteredPlays.slice(0, visible);
 
   // Helper to get team logo
   const getTeamLogo = (teamAbbrev) => {
@@ -120,11 +126,24 @@ export default function PlayByPlay({ data, isLoading, homeTeam, awayTeam, homeLo
 
       {/* Play by Play Feed */}
       <div className="space-y-2">
-        <h3 className="font-bold text-slate-900 flex items-center gap-2 px-1">
-          <Activity className="w-5 h-5 text-orange-500" />
-          Recent Plays
-          <span className="text-sm font-normal text-slate-400">({plays.length})</span>
-        </h3>
+        <div className="flex items-center justify-between gap-2 px-1">
+          <h3 className="font-bold text-on-surface flex items-center gap-2">
+            <Activity className="w-5 h-5 text-orange-500" />
+            {scoringOnly ? 'Scoring Plays' : 'All Plays'}
+            <span className="text-sm font-normal text-slate-400">({filteredPlays.length})</span>
+          </h3>
+          <button
+            type="button"
+            className="gd-chip"
+            aria-pressed={scoringOnly}
+            onClick={() => { setScoringOnly(v => !v); setVisible(PAGE); }}
+          >
+            Scoring only
+          </button>
+        </div>
+        {scoringOnly && filteredPlays.length === 0 && (
+          <p className="py-6 text-center text-sm text-slate-400">No scoring plays yet.</p>
+        )}
         
         {plays.map((play, idx) => (
           <div
@@ -206,10 +225,14 @@ export default function PlayByPlay({ data, isLoading, homeTeam, awayTeam, homeLo
           </div>
         ))}
         
-        {plays.length >= 50 && (
-          <p className="text-center text-sm text-slate-400 py-2">
-            Showing most recent 50 plays
-          </p>
+        {filteredPlays.length > plays.length && (
+          <button
+            type="button"
+            onClick={() => setVisible(filteredPlays.length)}
+            className="gd-card w-full py-3 text-center text-sm font-semibold text-orange-600 dark:text-brand-soft"
+          >
+            Show all {filteredPlays.length} plays (back to kickoff)
+          </button>
         )}
       </div>
     </div>

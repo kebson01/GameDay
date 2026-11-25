@@ -162,3 +162,20 @@ export function summarizeSchedule(schedule = []) {
 /** LiveGame link for a game in scoreboard shape */
 export const liveGameQuery = (g) =>
   `?gameId=${g.id}&home=${encodeURIComponent(g.home_team)}&away=${encodeURIComponent(g.away_team)}`;
+
+/** TeamPage link for a team; the ESPN id (when known) skips name lookup */
+export const teamPageQuery = (name, id) =>
+  `?team=${encodeURIComponent(name || '')}${id ? `&teamId=${encodeURIComponent(id)}` : ''}`;
+
+/** Resolve by ESPN id first, then by name */
+export async function resolveTeamById(id, name) {
+  if (id) {
+    const index = await fetchTeamIndex();
+    const hit = index[String(id)];
+    if (hit) {
+      const popular = POPULAR_TEAMS.find(t => String(t.id) === String(id));
+      return popular ? { ...hit, conference: popular.conference } : hit;
+    }
+  }
+  return resolveTeam(name);
+}

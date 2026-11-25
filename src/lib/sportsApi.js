@@ -864,7 +864,7 @@ export async function fetchPlayByPlay(gameId) {
     allPlays.reverse();
     
     return {
-      plays: allPlays.slice(0, 50), // Limit to 50 most recent plays
+      plays: allPlays, // Newest first; the UI pages through them
       current_drive: currentDrive ? {
         description: currentDrive.description,
         team: currentDrive.team?.abbreviation,

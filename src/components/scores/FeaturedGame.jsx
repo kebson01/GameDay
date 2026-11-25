@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Tv, ChevronRight, MapPin } from 'lucide-react';
 import { GameStatusPill, WinProbabilityBar } from './ScoreCard';
+import TeamLink, { cardButtonProps } from './TeamLink';
 
 function useCountdown(iso) {
   const [now, setNow] = useState(() => Date.now());
@@ -18,11 +19,13 @@ function useCountdown(iso) {
 function Side({ game, side, align }) {
   return (
     <div className={`flex min-w-0 flex-col gap-1 ${align === 'right' ? 'items-end text-right' : 'items-start'}`}>
-      {game[`${side}_logo`] ? (
-        <img src={game[`${side}_logo`]} alt="" className="h-12 w-12 object-contain drop-shadow" />
-      ) : (
-        <span className="h-12 w-12 rounded-full bg-surface-container-high" />
-      )}
+      <TeamLink name={game[`${side}_team`]} teamId={game[`${side}_team_id`]} className="cursor-pointer">
+        {game[`${side}_logo`] ? (
+          <img src={game[`${side}_logo`]} alt="" className="h-12 w-12 object-contain drop-shadow" />
+        ) : (
+          <span className="block h-12 w-12 rounded-full bg-surface-container-high" />
+        )}
+      </TeamLink>
       <div className={`flex items-center gap-1.5 ${align === 'right' ? 'flex-row-reverse' : ''}`}>
         {game[`${side}_rank`] && <span className="rounded bg-surface-container-high px-1 text-[11px] font-bold text-orange-600 dark:text-brand-soft">#{game[`${side}_rank`]}</span>}
         <span className="text-xs text-on-surface-variant tabular-nums">{game[`${side}_record`]}</span>
@@ -39,11 +42,9 @@ export default function FeaturedGame({ game, onOpen }) {
   const countdown = useCountdown(game.status === 'upcoming' ? game.full_date : null);
   const showScore = game.status !== 'upcoming';
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(game)}
-      className="gd-card gd-card-glow relative block w-full overflow-hidden p-4 text-left"
-      aria-label={`Featured game: ${game.away_team} at ${game.home_team}`}
+    <div
+      {...cardButtonProps(() => onOpen(game), `Featured game: ${game.away_team} at ${game.home_team}`)}
+      className="gd-card gd-card-glow relative block w-full cursor-pointer overflow-hidden p-4 text-left"
     >
       {/* stadium floodlight glow */}
       <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-brand/15 blur-3xl" />
@@ -119,6 +120,6 @@ export default function FeaturedGame({ game, onOpen }) {
           <ChevronRight className="h-4 w-4" />
         </div>
       </div>
-    </button>
+    </div>
   );
 }

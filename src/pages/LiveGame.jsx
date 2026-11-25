@@ -13,6 +13,7 @@ import { fetchPlayByPlay, fetchLiveGameStats, fetchGameSummary, fetchGameVideos 
 import VideoHighlights from '@/components/video/VideoHighlights';
 import AppHeader from '@/components/layout/AppHeader';
 import WinProbabilityChart from '@/components/scores/WinProbabilityChart';
+import TeamLink from '@/components/scores/TeamLink';
 
 export default function LiveGame() {
   const navigate = useNavigate();
@@ -98,13 +99,15 @@ export default function LiveGame() {
 
   const TeamBlock = ({ team, align }) => (
     <div className={`flex min-w-0 flex-col gap-1 ${align === 'right' ? 'items-end text-right' : 'items-start'}`}>
-      {team?.logo ? (
-        <img src={team.logo} alt="" className="h-14 w-14 object-contain drop-shadow" />
-      ) : (
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-container-high font-display text-lg font-bold">
-          {(team?.abbreviation || '').slice(0, 3)}
-        </span>
-      )}
+      <TeamLink name={team?.name || team?.short} teamId={team?.id}>
+        {team?.logo ? (
+          <img src={team.logo} alt="" className="h-14 w-14 object-contain drop-shadow" />
+        ) : (
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-container-high font-display text-lg font-bold">
+            {(team?.abbreviation || '').slice(0, 3)}
+          </span>
+        )}
+      </TeamLink>
       <div className={`flex items-center gap-1.5 ${align === 'right' ? 'flex-row-reverse' : ''}`}>
         {team?.rank && <span className="rounded bg-surface-container-high px-1 text-[11px] font-bold text-orange-600 dark:text-brand-soft">#{team.rank}</span>}
         {team?.record && <span className="text-xs text-on-surface-variant tabular-nums">{team.record}</span>}

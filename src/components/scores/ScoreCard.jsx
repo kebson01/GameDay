@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tv, Star, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import TeamLink, { cardButtonProps } from './TeamLink';
 
 // Status pill for a game: RED ZONE / HALFTIME / LIVE Q3 4:18 / FINAL / kickoff time
 export function GameStatusPill({ game }) {
@@ -29,11 +30,13 @@ function TeamRow({ game, side }) {
   const hasBall = game.status === 'live' && game.possession_team_id && game.possession_team_id === game[`${side}_team_id`];
   return (
     <div className="flex items-center gap-2.5">
-      {game[`${side}_logo`] ? (
-        <img src={game[`${side}_logo`]} alt="" className="h-7 w-7 object-contain" loading="lazy" />
-      ) : (
-        <span className="h-7 w-7 rounded-full bg-surface-container-high" />
-      )}
+      <TeamLink name={game[`${side}_team`]} teamId={game[`${side}_team_id`]} className="-m-1 shrink-0 p-1">
+        {game[`${side}_logo`] ? (
+          <img src={game[`${side}_logo`]} alt="" className="h-7 w-7 object-contain" loading="lazy" />
+        ) : (
+          <span className="block h-7 w-7 rounded-full bg-surface-container-high" />
+        )}
+      </TeamLink>
       {game[`${side}_rank`] && (
         <span className="rounded bg-surface-container-high px-1 text-[11px] font-bold text-orange-600 dark:text-brand-soft">
           #{game[`${side}_rank`]}
@@ -59,11 +62,9 @@ function TeamRow({ game, side }) {
 /** Compact scoreboard card used in lists */
 export default function ScoreCard({ game, favorite, onOpen }) {
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(game)}
-      className={cn('gd-card block w-full p-3.5 text-left', game.status === 'live' && 'gd-card-glow')}
-      aria-label={`${game.away_team} at ${game.home_team}`}
+    <div
+      {...cardButtonProps(() => onOpen(game), `${game.away_team} at ${game.home_team}`)}
+      className={cn('gd-card block w-full cursor-pointer p-3.5 text-left', game.status === 'live' && 'gd-card-glow')}
     >
       <div className="mb-3 flex items-center gap-2 text-xs">
         <GameStatusPill game={game} />
@@ -97,7 +98,7 @@ export default function ScoreCard({ game, favorite, onOpen }) {
         </div>
       )}
       {game.status === 'live' && game.home_win_pct != null && <WinProbabilityBar game={game} compact />}
-    </button>
+    </div>
   );
 }
 
