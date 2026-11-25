@@ -1,169 +1,165 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { client } from '@/api/client';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { createPageUrl } from '@/utils';
-import { ArrowLeft, Trophy, TrendingUp, TrendingDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
+import { RefreshCw, Trophy, Heart } from 'lucide-react';
+import { client } from '@/api/client';
+import { auth } from '@/lib/auth';
+import { getCurrentSeason, fetchRankings } from '@/lib/sportsApi';
+import AppHeader from '@/components/layout/AppHeader';
 import SafetyButton from '@/components/common/SafetyButton';
-import { getCurrentSeason } from '@/lib/sportsApi';
+import { Skeleton } from '@/components/common/LoadingSkeleton';
+import StandingsTable from '@/components/feed-v2/StandingsTable';
+import { sortStandings } from '@/lib/feedData';
 
-const CONFERENCES = [
-  { id: 'all', name: 'All Teams' },
-  { id: 'SEC', name: 'SEC' },
-  { id: 'Big Ten', name: 'Big Ten' },
-  { id: 'ACC', name: 'ACC' },
-  { id: 'Big 12', name: 'Big 12' },
-  { id: 'American', name: 'American' },
-  { id: 'Mountain West', name: 'Mountain West' },
-  { id: 'MAC', name: 'MAC' },
-  { id: 'Sun Belt', name: 'Sun Belt' },
-  { id: 'Conference USA', name: 'C-USA' },
-];
+// Preferred chip order; any other conference in the data follows alphabetically
+const CONFERENCE_ORDER = ['SEC', 'Big Ten', 'ACC', 'Big 12', 'Pac-12', 'American', 'Mountain West', 'Sun Belt', 'MAC', 'Conference USA', 'Independent'];
+const CHIP_LABEL = { 'Conference USA': 'C-USA' };
 
 export default function Standings() {
-  const navigate = useNavigate();
   const [selectedConference, setSelectedConference] = useState('all');
-  
-  const { data, isLoading } = useQuery({
+  const [sortMode, setSortMode] = useState('conf'); // 'conf' | 'overall'
+  const [favoriteTeams, setFavoriteTeams] = useState([]);
+
+  useEffect(() => {
+    auth.me().then(u => setFavoriteTeams(u?.favorite_teams || [])).catch(() => {});
+  }, []);
+
+  const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['standings', selectedConference],
     queryFn: async () => {
-      const response = await client.functions.invoke('fetchStandings', { 
-        conference: selectedConference === 'all' ? null : selectedConference 
+      const response = await client.functions.invoke('fetchStandings', {
+        conference: selectedConference === 'all' ? null : selectedConference
       });
       return response.data;
     },
   });
-  
+
+  // AP ranks to tag ranked teams in the table
+  const { data: rankings = [] } = useQuery({
+    queryKey: ['rankings'],
+    queryFn: fetchRankings,
+    staleTime: 300000,
+  });
+  const apRanks = useMemo(
+    () => Object.fromEntries(rankings.filter(r => r.team_id).map(r => [r.team_id, r.rank])),
+    [rankings]
+  );
+
   // Group standings by conference
-  const groupedStandings = {};
-  if (data?.standings) {
-    data.standings.forEach(team => {
-      if (!groupedStandings[team.conference]) {
-        groupedStandings[team.conference] = [];
-      }
-      groupedStandings[team.conference].push(team);
+  const groupedStandings = useMemo(() => {
+    const grouped = {};
+    (data?.standings || []).forEach(team => {
+      if (!team.conference) return;
+      (grouped[team.conference] ||= []).push(team);
     });
-    
-    // Sort teams within each conference by win percentage
-    Object.keys(groupedStandings).forEach(conf => {
-      groupedStandings[conf].sort((a, b) => b.win_percentage - a.win_percentage);
-    });
-  }
-  
-  const conferences = selectedConference === 'all' 
-    ? Object.keys(groupedStandings).sort()
-    : [selectedConference];
-  
+    Object.keys(grouped).forEach(conf => { grouped[conf] = sortStandings(grouped[conf], sortMode); });
+    return grouped;
+  }, [data, sortMode]);
+
+  const allConferences = useMemo(() => {
+    const names = Object.keys(groupedStandings);
+    const rank = (n) => { const i = CONFERENCE_ORDER.indexOf(n); return i < 0 ? 99 : i; };
+    return names.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  }, [groupedStandings]);
+
+  const conferences = selectedConference === 'all' ? allConferences : [selectedConference];
+
+  const favoriteIds = useMemo(() => {
+    if (!favoriteTeams.length) return [];
+    const favs = favoriteTeams.map(t => t.toLowerCase());
+    return (data?.standings || [])
+      .filter(t => favs.some(f => t.team_name?.toLowerCase() === f || t.team_name?.toLowerCase().includes(f)))
+      .map(t => t.team_id);
+  }, [data, favoriteTeams]);
+
   return (
     <div className="gd-page">
-      {/* Header */}
-      <div className="gd-header px-4 pt-6 pb-4">
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/20"
-            onClick={() => navigate(createPageUrl('Home'))}
+      <AppHeader
+        eyebrow="Saturday Live"
+        title="Standings"
+        subtitle={`${getCurrentSeason()} FBS season`}
+        back="Home"
+        actions={
+          <button
+            type="button"
+            aria-label="Refresh standings"
+            onClick={() => refetch()}
+            className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface"
           >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold">College Football Standings</h1>
-            <p className="text-white/80 text-sm">{getCurrentSeason()} Season</p>
-          </div>
-        </div>
-      </div>
-      
-      {/* Conference Selector */}
-      <div className="bg-surface-container border-b border-gray-200 px-4 py-3 overflow-x-auto">
-        <div className="flex gap-2">
-          {CONFERENCES.map(conf => (
-            <Button
-              key={conf.id}
-              variant={selectedConference === conf.id ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedConference(conf.id)}
-              className={selectedConference === conf.id ? 'bg-orange-500 hover:bg-orange-600' : ''}
+            <RefreshCw className={`h-5 w-5 ${isFetching ? 'animate-spin' : ''}`} />
+          </button>
+        }
+      />
+
+      <main className="space-y-4 px-4 pt-4">
+        {/* Conference chips */}
+        <div className="gd-chip-row" role="toolbar" aria-label="Conference">
+          <button type="button" className="gd-chip" aria-pressed={selectedConference === 'all'} onClick={() => setSelectedConference('all')}>
+            <Trophy className="h-3.5 w-3.5" />
+            All
+          </button>
+          {allConferences.map(conf => (
+            <button
+              key={conf}
+              type="button"
+              className="gd-chip"
+              aria-pressed={selectedConference === conf}
+              onClick={() => setSelectedConference(conf)}
             >
-              {conf.name}
-            </Button>
+              {CHIP_LABEL[conf] || conf}
+            </button>
           ))}
         </div>
-      </div>
-      
-      {/* Standings */}
-      <div className="px-4 py-4">
+
+        {/* Sort: conference vs overall record */}
+        <div className="flex items-center gap-3">
+          <div className="gd-segment flex-1 grid-cols-2" role="tablist" aria-label="Sort standings by">
+            <button type="button" role="tab" aria-selected={sortMode === 'conf'} onClick={() => setSortMode('conf')}>
+              Conf Record
+            </button>
+            <button type="button" role="tab" aria-selected={sortMode === 'overall'} onClick={() => setSortMode('overall')}>
+              Overall
+            </button>
+          </div>
+          {favoriteIds.length > 0 && (
+            <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-on-surface-variant">
+              <span className="h-3 w-1 rounded-full bg-brand" />
+              <Heart className="h-3 w-3 text-orange-500" />
+              Your teams
+            </span>
+          )}
+        </div>
+
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
+          <div className="space-y-3">
+            <Skeleton className="h-96 w-full rounded-2xl" />
+            <Skeleton className="h-64 w-full rounded-2xl" />
+          </div>
+        ) : !allConferences.length ? (
+          <div className="gd-card px-6 py-12 text-center">
+            <Trophy className="mx-auto mb-3 h-10 w-10 text-orange-500" />
+            <p className="font-display text-xl font-bold uppercase text-on-surface">Standings unavailable</p>
+            <p className="mt-1 text-sm text-on-surface-variant">ESPN didn&apos;t return standings. Try refreshing.</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {conferences.map(conf => (
-              <div key={conf} className="bg-surface-container rounded-2xl shadow-sm overflow-hidden">
-                <div className="bg-gradient-to-r from-ink-800 to-ink-700 text-white px-4 py-3 flex items-center justify-between">
-                  <h2 className="font-bold text-lg">{conf}</h2>
-                  <Trophy className="w-5 h-5 text-yellow-400" />
-                </div>
-                
-                {/* Table Header */}
-                <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
-                  <div className="col-span-1">#</div>
-                  <div className="col-span-5">Team</div>
-                  <div className="col-span-2 text-center">Overall</div>
-                  <div className="col-span-2 text-center">Conf</div>
-                  <div className="col-span-2 text-center">Win %</div>
-                </div>
-                
-                {/* Teams */}
-                <div>
-                  {groupedStandings[conf]?.map((team, idx) => (
-                    <div 
-                      key={idx}
-                      className="grid grid-cols-12 gap-2 px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors"
-                    >
-                      <div className="col-span-1 flex items-center">
-                        <span className="font-bold text-slate-700">{idx + 1}</span>
-                      </div>
-                      <div className="col-span-5 flex items-center">
-                        <span className="font-semibold text-slate-900">{team.team_name}</span>
-                      </div>
-                      <div className="col-span-2 flex items-center justify-center">
-                        <span className="text-sm">
-                          <span className="font-bold text-green-600">{team.wins}</span>
-                          <span className="text-slate-400 mx-0.5">-</span>
-                          <span className="font-bold text-red-600">{team.losses}</span>
-                        </span>
-                      </div>
-                      <div className="col-span-2 flex items-center justify-center">
-                        <span className="text-sm text-slate-600">
-                          {team.conference_wins}-{team.conference_losses}
-                        </span>
-                      </div>
-                      <div className="col-span-2 flex items-center justify-center">
-                        <Badge 
-                          variant="outline" 
-                          className={`font-mono text-xs ${
-                            team.win_percentage >= 0.7 ? 'bg-green-50 text-green-700 border-green-200' : 
-                            team.win_percentage >= 0.5 ? 'bg-blue-50 text-blue-700 border-blue-200' : 
-                            'bg-slate-50 text-slate-600 border-slate-200'
-                          }`}
-                        >
-                          {(team.win_percentage * 100).toFixed(0)}%
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          conferences.map(conf => (
+            <StandingsTable
+              key={conf}
+              conference={conf}
+              teams={groupedStandings[conf] || []}
+              apRanks={apRanks}
+              mode={sortMode}
+              highlightIds={favoriteIds}
+            />
+          ))
         )}
-      </div>
-      
+
+        {!isLoading && allConferences.length > 0 && (
+          <p className="px-1 pb-2 text-center text-xs text-on-surface-variant">
+            Sorted by {sortMode === 'conf' ? 'conference' : 'overall'} win %. Pct = overall win %. #N = AP rank. Data: ESPN.
+          </p>
+        )}
+      </main>
+
       <SafetyButton />
     </div>
   );

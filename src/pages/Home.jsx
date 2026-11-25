@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { TailgateIcon } from '@/components/icons/GameDayIcons';
 import { useNavigate } from 'react-router-dom';
 import { client } from '@/api/client';
 import { fetchScoreboard, fetchStories, teamLogoUrl } from '@/lib/sportsApi';
@@ -456,7 +457,7 @@ export default function Home() {
             </>
           ) : (
             <div className="text-center py-12 border border-gray-200 rounded-3xl">
-              <PartyPopper className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <TailgateIcon className="w-12 h-12 text-on-surface-variant mx-auto mb-3" />
               <p className="text-gray-500 mb-3">No tailgates yet</p>
               <button 
                 className="text-orange-500 font-semibold text-sm"

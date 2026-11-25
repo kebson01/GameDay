@@ -1,33 +1,33 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchNews, fetchRankings } from '@/lib/sportsApi';
 import { useQuery } from '@tanstack/react-query';
+import { Search, X, RefreshCw, Newspaper, Film, Trophy, ChevronRight, LayoutGrid, TrendingUp, TrendingDown } from 'lucide-react';
+import { fetchNews, fetchRankings } from '@/lib/sportsApi';
 import { createPageUrl } from '@/utils';
-import { ArrowLeft, Search, ExternalLink, Clock, Trophy, RefreshCw, Newspaper, Play, Film } from 'lucide-react';
+import AppHeader from '@/components/layout/AppHeader';
 import VideoStorySheet from '@/components/video/VideoStorySheet';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import SafetyButton from '@/components/common/SafetyButton';
 import { Skeleton } from '@/components/common/LoadingSkeleton';
+import { LeadStory, StoryRow } from '@/components/feed-v2/NewsStory';
 
 export default function News() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
   // ?filter=videos (e.g. from Home's Highlights "See All") opens the Videos filter
   const [filter, setFilter] = useState(() =>
     new URLSearchParams(window.location.search).get('filter') === 'videos' ? 'videos' : 'all'
   ); // 'all' | 'videos'
   const [selectedVideo, setSelectedVideo] = useState(null);
-  
+
   // Fetch news from ESPN
-  const { data: news = [], isLoading: newsLoading, refetch } = useQuery({
+  const { data: news = [], isLoading: newsLoading, isFetching, refetch } = useQuery({
     queryKey: ['cfb-news'],
     queryFn: () => fetchNews(40),
     staleTime: 60000, // 1 minute
   });
 
-  // Fetch rankings for sidebar
+  // AP poll for the Top 5 strip
   const { data: rankings = [] } = useQuery({
     queryKey: ['rankings'],
     queryFn: fetchRankings,
@@ -35,12 +35,16 @@ export default function News() {
   });
 
   const videoCount = news.filter(a => a.is_video).length;
+  const q = searchQuery.trim().toLowerCase();
   const filteredNews = news.filter(article =>
     (filter === 'all' || article.is_video) && (
-    !searchQuery || 
-    article.headline?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    article.description?.toLowerCase().includes(searchQuery.toLowerCase()))
+      !q ||
+      article.headline?.toLowerCase().includes(q) ||
+      article.description?.toLowerCase().includes(q))
   );
+  // Lead story: the newest story with a photo
+  const lead = filteredNews.find(a => a.image) || null;
+  const rest = filteredNews.filter(a => a !== lead);
 
   // Video stories open in-app; the clip itself plays on ESPN over the app
   const openVideoStory = (article) => setSelectedVideo({
@@ -54,234 +58,152 @@ export default function News() {
     source: article.source,
   });
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    
-    if (diffHours < 1) return 'Just now';
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffHours < 48) return 'Yesterday';
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-  
   return (
     <div className="gd-page">
-      {/* Header */}
-      <div className="gd-header px-4 pt-6 pb-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-white hover:bg-white/20"
-              onClick={() => navigate(createPageUrl('Home'))}
+      <AppHeader
+        eyebrow="Saturday Live"
+        title="CFB News Wire"
+        subtitle="Powered by ESPN"
+        back="Home"
+        actions={
+          <>
+            <button
+              type="button"
+              aria-label={showSearch ? 'Close search' : 'Search news'}
+              onClick={() => { setShowSearch(v => !v); setSearchQuery(''); }}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface"
             >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-xl font-bold">College Football News</h1>
-              <p className="text-white/80 text-sm">Powered by ESPN</p>
-            </div>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/20"
-            onClick={() => refetch()}
-          >
-            <RefreshCw className="w-5 h-5" />
-          </Button>
-        </div>
-        
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <Input
-            placeholder="Search news..."
+              {showSearch ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+            </button>
+            <button
+              type="button"
+              aria-label="Refresh news"
+              onClick={() => refetch()}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface"
+            >
+              <RefreshCw className={`h-5 w-5 ${isFetching ? 'animate-spin' : ''}`} />
+            </button>
+          </>
+        }
+      >
+        {showSearch && (
+          <input
+            autoFocus
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50"
+            placeholder="Search news…"
+            className="gd-input"
+            aria-label="Search news"
           />
-        </div>
-      </div>
-      
-      <div className="px-4 py-4 space-y-4">
-        {/* Top 5 Rankings Quick View */}
-        {rankings.length > 0 && (
-          <div className="bg-surface-container rounded-2xl shadow-sm p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-bold text-slate-900 flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-orange-500" />
-                AP Top 5
-              </h2>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => navigate(createPageUrl('Schedule'))}
-              >
-                See All
-              </Button>
-            </div>
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {rankings.slice(0, 5).map((team) => (
-                <div key={team.rank} className="flex flex-col items-center shrink-0">
-                  <div className="relative">
-                    {team.logo ? (
-                      <img src={team.logo} alt="" className="w-12 h-12 object-contain" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-slate-200" />
-                    )}
-                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center text-xs font-bold text-white">
-                      {team.rank}
-                    </div>
-                  </div>
-                  <span className="text-xs text-slate-600 mt-1 text-center max-w-[60px] truncate">
-                    {team.team?.split(' ').pop()}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
         )}
+      </AppHeader>
 
-        {/* News Feed */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="font-bold text-slate-900 flex items-center gap-2">
-              <Newspaper className="w-5 h-5 text-blue-500" />
-              Latest News
-            </h2>
-            <div role="tablist" aria-label="Filter news" className="flex gap-1 rounded-full bg-slate-100 p-1">
-              {[
-                { value: 'all', label: 'All' },
-                { value: 'videos', label: `Videos${videoCount ? ` (${videoCount})` : ''}`, icon: Film },
-              ].map(({ value, label, icon: Icon }) => (
-                <button
-                  key={value}
-                  role="tab"
-                  aria-selected={filter === value}
-                  onClick={() => setFilter(value)}
-                  className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                    filter === value ? 'bg-brand text-white shadow' : 'text-slate-600'
-                  }`}
-                >
-                  {Icon && <Icon className="h-3.5 w-3.5" />}
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {newsLoading ? (
-            <div className="space-y-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="bg-surface-container rounded-2xl p-4 shadow-sm">
-                  <Skeleton className="h-40 w-full rounded-xl mb-3" />
-                  <Skeleton className="h-5 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-full mb-1" />
-                  <Skeleton className="h-4 w-2/3" />
-                </div>
-              ))}
-            </div>
-          ) : filteredNews.length > 0 ? (
-            <div className="space-y-4">
-              {filteredNews.map((article, idx) => article.is_video ? (
-                <button
-                  type="button"
-                  key={article.id || idx}
-                  onClick={() => openVideoStory(article)}
-                  className="block w-full text-left bg-surface-container rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-                  aria-label={`Video: ${article.headline}`}
-                >
-                  <div className="relative aspect-video bg-ink-900">
-                    {article.image && (
-                      <img src={article.image} alt="" loading="lazy" className="w-full h-full object-cover" />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    <span className="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-[0_0_20px_-2px_rgba(249,115,22,0.7)]">
-                      <Play className="ml-1 h-6 w-6 fill-white" />
-                    </span>
-                    <Badge className="absolute top-3 left-3 bg-red-600 hover:bg-red-600">
-                      <Film className="mr-1 h-3 w-3" /> Video
-                    </Badge>
-                    {article.premium && (
-                      <Badge className="absolute top-3 right-3 bg-yellow-400 text-ink-900 hover:bg-yellow-400">ESPN+</Badge>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-bold text-slate-900 mb-2 line-clamp-2">{article.headline}</h3>
-                    {article.description && (
-                      <p className="text-sm text-slate-600 mb-3 line-clamp-2">{article.description}</p>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatDate(article.published)}
-                      </span>
-                      <span className="text-xs font-semibold text-orange-600 flex items-center gap-1">
-                        <Play className="w-3 h-3 fill-current" />
-                        Watch
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              ) : (
-                <a
-                  key={article.id || idx}
-                  href={article.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block bg-surface-container rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-                >
-                  {article.image && (
-                    <div className="relative h-48">
-                      <img 
-                        src={article.image} 
-                        alt="" 
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                      <Badge className="absolute top-3 left-3 bg-blue-500">
-                        {article.source}
-                      </Badge>
-                    </div>
-                  )}
-                  <div className="p-4">
-                    <h3 className="font-bold text-slate-900 mb-2 line-clamp-2">
-                      {article.headline}
-                    </h3>
-                    {article.description && (
-                      <p className="text-sm text-slate-600 mb-3 line-clamp-2">
-                        {article.description}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatDate(article.published)}
-                      </span>
-                      <span className="text-xs text-blue-500 flex items-center gap-1">
-                        Read more
-                        <ExternalLink className="w-3 h-3" />
-                      </span>
-                    </div>
-                  </div>
-                </a>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 bg-surface-container rounded-2xl">
-              <Newspaper className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-600">
-                {searchQuery ? 'No articles match your search' : filter === 'videos' ? 'No videos right now' : 'No news available'}
-              </p>
-            </div>
-          )}
+      <main className="space-y-4 px-4 pt-4">
+        {/* All / Videos */}
+        <div className="gd-chip-row" role="tablist" aria-label="Filter news">
+          {[
+            { value: 'all', label: 'All News', icon: LayoutGrid },
+            { value: 'videos', label: `Videos${videoCount ? ` (${videoCount})` : ''}`, icon: Film },
+          ].map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={filter === value}
+              onClick={() => setFilter(value)}
+              className="gd-chip"
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </button>
+          ))}
         </div>
-      </div>
-      
+
+        {newsLoading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-[300px] w-full rounded-2xl" />
+            <Skeleton className="h-24 w-full rounded-2xl" />
+            <Skeleton className="h-28 w-full rounded-2xl" />
+            <Skeleton className="h-28 w-full rounded-2xl" />
+          </div>
+        ) : filteredNews.length === 0 ? (
+          <div className="gd-card px-6 py-12 text-center">
+            <Newspaper className="mx-auto mb-3 h-10 w-10 text-orange-500" />
+            <p className="font-display text-xl font-bold uppercase text-on-surface">
+              {q ? 'No matching stories' : filter === 'videos' ? 'No videos right now' : 'No news available'}
+            </p>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              {q ? 'Try a different search.' : 'Tap refresh or check back soon.'}
+            </p>
+          </div>
+        ) : (
+          <>
+            {lead && <LeadStory article={lead} onOpenVideo={openVideoStory} />}
+
+            {/* AP Top 5 */}
+            {rankings.length > 0 && !q && (
+              <section className="gd-card p-3.5" aria-label="AP Top 5">
+                <div className="mb-2.5 flex items-center justify-between">
+                  <h2 className="flex items-center gap-2 font-display text-lg font-bold uppercase tracking-wide text-on-surface">
+                    <Trophy className="h-4 w-4 text-amber-600 dark:text-brand-highlight" />
+                    AP Top 5
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => navigate(createPageUrl('Schedule') + '?tab=rankings')}
+                    className="flex items-center gap-0.5 text-sm font-semibold text-orange-600 dark:text-brand-soft"
+                  >
+                    Full poll <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+                <ol className="-mx-3.5 flex gap-2 overflow-x-auto px-3.5 pb-0.5 [scrollbar-width:none]">
+                  {rankings.slice(0, 5).map((team) => (
+                    <li
+                      key={team.rank}
+                      className="flex w-[92px] shrink-0 flex-col items-center rounded-xl bg-surface-container-high px-2 pb-2 pt-2.5 dark:bg-surface"
+                    >
+                      <span className="relative">
+                        {team.logo ? (
+                          <img src={team.logo} alt="" className="h-10 w-10 object-contain" />
+                        ) : (
+                          <span className="block h-10 w-10 rounded-full bg-surface-container-highest" />
+                        )}
+                        <span className="absolute -left-2.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 font-display text-xs font-bold text-white">
+                          {team.rank}
+                        </span>
+                      </span>
+                      <span className="mt-1.5 line-clamp-2 min-h-[2.2em] w-full text-center font-display text-[13px] font-bold uppercase leading-[1.1] text-on-surface">
+                        {team.team}
+                      </span>
+                      <span className="flex items-center gap-0.5 text-[11px] font-semibold text-on-surface-variant tabular-nums">
+                        {team.record}
+                        {team.trend === 'up' && <TrendingUp className="h-3 w-3 text-emerald-600 dark:text-brand-win" aria-label="Moved up" />}
+                        {team.trend === 'down' && <TrendingDown className="h-3 w-3 text-red-600" aria-label="Moved down" />}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
+
+            {rest.length > 0 && (
+              <section className="space-y-3">
+                <h2 className="flex items-center justify-between pt-1 font-display text-lg font-bold uppercase tracking-wide text-on-surface">
+                  <span className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-brand" />
+                    {filter === 'videos' ? 'Video Wire' : 'Trending Wire'}
+                  </span>
+                  <span className="text-xs font-semibold normal-case text-on-surface-variant">{rest.length} {rest.length === 1 ? 'story' : 'stories'}</span>
+                </h2>
+                {rest.map((article, idx) => (
+                  <StoryRow key={article.id || idx} article={article} onOpenVideo={openVideoStory} />
+                ))}
+              </section>
+            )}
+          </>
+        )}
+      </main>
+
       <VideoStorySheet
         video={selectedVideo}
         open={!!selectedVideo}

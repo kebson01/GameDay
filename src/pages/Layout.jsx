@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { Home, Users, Car, PartyPopper, Map, Radio, Newspaper, User } from 'lucide-react';
+import { HomeIcon, LiveIcon, TailgateIcon, TeamsIcon, FriendsIcon } from '@/components/icons/GameDayIcons';
 import { cn } from '@/lib/utils';
 import { Toaster } from 'sonner';
 import { auth } from '@/lib/auth';
@@ -30,13 +30,13 @@ export default function Layout({ children, currentPageName }) {
   }, [currentPageName]);
   
   const navItems = [
-    { name: 'Home', icon: Home, page: 'Home' },
-    { name: 'Live', icon: Radio, page: 'GameDay' },
-    { name: 'Teams', icon: PartyPopper, page: 'MyTeams' },
-    { name: 'Friends', icon: Users, page: 'FindFriends' },
-    { name: user ? 'Profile' : 'Map', icon: user ? User : Map, page: user ? 'UserProfile' : 'CampusMap' },
+    { name: 'Home', icon: HomeIcon, page: 'Home', also: [] },
+    { name: 'Live', icon: LiveIcon, page: 'GameDay', also: ['LiveGame', 'Schedule', 'Standings'] },
+    { name: 'Tailgates', icon: TailgateIcon, page: 'TailgateDirectory', also: ['TailgateDetail', 'CreateTailgate'] },
+    { name: 'Teams', icon: TeamsIcon, page: 'MyTeams', also: ['TeamPage', 'DiscoverTeams', 'TeamSocial'] },
+    { name: 'Friends', icon: FriendsIcon, page: 'FindFriends', also: ['CarLocator', 'CampusMap'] },
   ];
-  
+
   const showNav = !['Settings', 'PrivacyPolicy', 'TermsOfService'].includes(currentPageName);
   
   return (
@@ -77,28 +77,28 @@ export default function Layout({ children, currentPageName }) {
           className="fixed bottom-0 left-0 right-0 z-50 safe-area-pb bg-surface-container/95 backdrop-blur-xl border-t border-outline-variant shadow-[0_-4px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_16px_rgba(0,0,0,0.35)]"
         >
           <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
-            {navItems.map(({ name, icon: Icon, page }) => {
-              const isActive = currentPageName === page;
+            {navItems.map(({ name, icon: Icon, page, also }) => {
+              const isActive = currentPageName === page || also.includes(currentPageName);
               return (
                 <Link
                   key={page}
                   to={createPageUrl(page)}
                   aria-current={isActive ? 'page' : undefined}
-                  className="relative flex flex-col items-center justify-center flex-1 py-2 mx-1 transition-colors"
+                  className="group relative flex flex-1 flex-col items-center justify-center py-1.5 transition-colors"
                 >
-                  {isActive && (
-                    <span className="absolute -top-px left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full bg-brand" />
-                  )}
-                  <Icon
+                  <span
                     className={cn(
-                      "w-6 h-6 transition-colors",
-                      isActive ? "text-brand" : "text-on-surface-variant"
+                      "flex h-8 w-12 items-center justify-center rounded-full transition-all duration-200",
+                      isActive
+                        ? "bg-brand/15 text-on-surface ring-1 ring-brand/40 scale-105"
+                        : "text-on-surface-variant opacity-85 group-hover:opacity-100"
                     )}
-                    strokeWidth={isActive ? 2.5 : 2}
-                  />
+                  >
+                    <Icon className="h-6 w-6" strokeWidth={isActive ? 2 : 1.8} />
+                  </span>
                   <span className={cn(
-                    "text-[11px] mt-0.5 font-semibold",
-                    isActive ? "text-brand" : "text-on-surface-variant"
+                    "mt-0.5 text-[11px] font-semibold",
+                    isActive ? "text-orange-600 dark:text-brand-soft" : "text-on-surface-variant"
                   )}>
                     {name}
                   </span>

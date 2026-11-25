@@ -51,7 +51,7 @@ export default function FeaturedGame({ game, onOpen }) {
 
       <div className="relative">
         <div className="mb-3 flex items-center gap-2">
-          <GameStatusPill game={game} />
+          <span className="shrink-0 whitespace-nowrap"><GameStatusPill game={game} /></span>
           <span className="flex min-w-0 items-center gap-1 truncate text-xs text-on-surface-variant">
             <MapPin className="h-3 w-3 shrink-0" />
             <span className="truncate">{game.venue}</span>

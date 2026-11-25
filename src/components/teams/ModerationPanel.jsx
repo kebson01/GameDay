@@ -45,25 +45,26 @@ export default function ModerationPanel({ posts, onModerate, user }) {
 
   return (
     <>
-      <Button
+      <button
+        type="button"
         onClick={() => setShowPanel(true)}
-        variant="outline"
-        className="gap-2 border-orange-200 hover:bg-orange-50"
+        className="gd-chip"
+        aria-label={`Moderation${flaggedPosts.length ? ` (${flaggedPosts.length} flagged)` : ''}`}
       >
-        <Shield className="w-4 h-4 text-orange-600" />
-        <span className="font-semibold">Moderation</span>
+        <Shield className="h-3.5 w-3.5 text-orange-600 dark:text-brand-soft" />
+        Moderation
         {flaggedPosts.length > 0 && (
-          <Badge className="bg-red-500 text-white">
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 font-sans text-[11px] font-bold text-white">
             {flaggedPosts.length}
-          </Badge>
+          </span>
         )}
-      </Button>
+      </button>
 
       <Dialog open={showPanel} onOpenChange={setShowPanel}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto rounded-2xl border-outline-variant bg-surface-container dark:border-white/[0.08]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shield className="w-5 h-5 text-orange-600" />
+            <DialogTitle className="flex items-center gap-2 font-display text-xl font-bold uppercase tracking-wide text-on-surface">
+              <Shield className="w-5 h-5 text-orange-600 dark:text-brand-soft" />
               Content Moderation
             </DialogTitle>
           </DialogHeader>
@@ -73,24 +74,24 @@ export default function ModerationPanel({ posts, onModerate, user }) {
             {flaggedPosts.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <Flag className="w-4 h-4 text-red-600" />
-                  <h3 className="font-semibold text-slate-900">Flagged Content ({flaggedPosts.length})</h3>
+                  <Flag className="w-4 h-4 text-red-600 dark:text-red-400" />
+                  <h3 className="font-semibold text-on-surface">Flagged Content ({flaggedPosts.length})</h3>
                 </div>
                 <div className="space-y-3">
                   {flaggedPosts.map(post => (
-                    <div key={post.id} className="bg-red-50 border border-red-200 rounded-xl p-4">
+                    <div key={post.id} className="rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4">
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <p className="font-semibold text-slate-900">{post.user_name}</p>
-                          <p className="text-xs text-slate-500">
+                          <p className="font-semibold text-on-surface">{post.user_name}</p>
+                          <p className="text-xs text-on-surface-variant">
                             {formatDistanceToNow(new Date(post.created_date), { addSuffix: true })}
                           </p>
                         </div>
-                        <Badge variant="outline" className="capitalize">{post.type}</Badge>
+                        <span className="gd-pill bg-surface-container-high text-on-surface-variant">{post.type}</span>
                       </div>
-                      <p className="text-sm text-slate-700 mb-3 line-clamp-3">{post.content}</p>
+                      <p className="text-sm text-on-surface mb-3 line-clamp-3">{post.content}</p>
                       {post.video_url && (
-                        <Badge className="bg-purple-500 mb-3">
+                        <Badge className="mb-3 bg-violet-600 text-white hover:bg-violet-600">
                           <MessageCircle className="w-3 h-3 mr-1" />
                           Contains Video
                         </Badge>
@@ -122,23 +123,23 @@ export default function ModerationPanel({ posts, onModerate, user }) {
             {hiddenPosts.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <EyeOff className="w-4 h-4 text-slate-600" />
-                  <h3 className="font-semibold text-slate-900">Hidden Content ({hiddenPosts.length})</h3>
+                  <EyeOff className="w-4 h-4 text-on-surface-variant" />
+                  <h3 className="font-semibold text-on-surface">Hidden Content ({hiddenPosts.length})</h3>
                 </div>
                 <div className="space-y-3">
                   {hiddenPosts.map(post => (
-                    <div key={post.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                    <div key={post.id} className="rounded-xl border border-outline-variant bg-surface-container-high p-4 dark:border-white/[0.08] dark:bg-surface">
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <p className="font-semibold text-slate-900">{post.user_name}</p>
-                          <p className="text-xs text-slate-500">
+                          <p className="font-semibold text-on-surface">{post.user_name}</p>
+                          <p className="text-xs text-on-surface-variant">
                             {formatDistanceToNow(new Date(post.created_date), { addSuffix: true })}
                           </p>
                         </div>
                       </div>
-                      <p className="text-sm text-slate-700 mb-2 line-clamp-2">{post.content}</p>
+                      <p className="text-sm text-on-surface mb-2 line-clamp-2">{post.content}</p>
                       {post.moderation_reason && (
-                        <p className="text-xs text-slate-500 mb-3">
+                        <p className="text-xs text-on-surface-variant mb-3">
                           <AlertTriangle className="w-3 h-3 inline mr-1" />
                           {post.moderation_reason}
                         </p>
@@ -159,8 +160,8 @@ export default function ModerationPanel({ posts, onModerate, user }) {
 
             {flaggedPosts.length === 0 && hiddenPosts.length === 0 && (
               <div className="text-center py-8">
-                <Shield className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500">No content requires moderation</p>
+                <Shield className="w-12 h-12 text-on-surface-variant/50 mx-auto mb-3" />
+                <p className="text-on-surface-variant">No content requires moderation</p>
               </div>
             )}
           </div>
@@ -169,19 +170,19 @@ export default function ModerationPanel({ posts, onModerate, user }) {
 
       {/* Hide Post Dialog */}
       <Dialog open={!!selectedPost} onOpenChange={() => setSelectedPost(null)}>
-        <DialogContent>
+        <DialogContent className="rounded-2xl border-outline-variant bg-surface-container dark:border-white/[0.08]">
           <DialogHeader>
-            <DialogTitle>Hide Post</DialogTitle>
+            <DialogTitle className="font-display text-xl font-bold uppercase tracking-wide text-on-surface">Hide Post</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-on-surface-variant">
               This will hide the post from the feed. Please provide a reason:
             </p>
             <Textarea
               placeholder="Reason for hiding this post..."
               value={moderationReason}
               onChange={(e) => setModerationReason(e.target.value)}
-              className="min-h-24"
+              className="gd-input min-h-24 py-3"
             />
             <div className="flex gap-2">
               <Button

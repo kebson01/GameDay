@@ -1,31 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '@/lib/auth';
-import { fetchScoreboard, fetchTeamSchedule, fetchTeamNews, fetchNews, POPULAR_TEAMS, CONFERENCES } from '@/lib/sportsApi';
+import {
+  fetchScoreboard, fetchTeamSchedule, fetchStories, fetchVideoNews, fetchStandings, fetchRankings, POPULAR_TEAMS,
+} from '@/lib/sportsApi';
 import { useQuery } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
-import { ArrowLeft, Star, Plus, Trash2, Radio, Calendar, Search, X, Trophy, MapPin, Tv, ChevronRight, ExternalLink, Newspaper } from 'lucide-react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Star, Plus, Search, Compass, Calendar, Film, Newspaper, Radio, Trophy } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import SafetyButton from '@/components/common/SafetyButton';
+import AppHeader from '@/components/layout/AppHeader';
+import FeaturedGame from '@/components/scores/FeaturedGame';
+import ScoreCard from '@/components/scores/ScoreCard';
+import VideoHighlights from '@/components/video/VideoHighlights';
+import { Skeleton } from '@/components/common/LoadingSkeleton';
+import FollowedTeamCard from '@/components/teams-v2/FollowedTeamCard';
+import ScheduleRow from '@/components/teams-v2/ScheduleRow';
+import StoryList from '@/components/teams-v2/StoryList';
+import TeamLogo from '@/components/teams-v2/TeamLogo';
+import { resolveTeam, summarizeSchedule, liveGameQuery } from '@/lib/teamData';
+
+function SectionTitle({ children, aside }) {
+  return (
+    <h2 className="flex items-center justify-between gap-2 font-display text-lg font-bold uppercase tracking-wide text-on-surface">
+      <span className="flex items-center gap-2">{children}</span>
+      {aside}
+    </h2>
+  );
+}
 
 export default function MyTeams() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showAddDialog, setShowAddDialog] = useState(
+    () => new URLSearchParams(window.location.search).get('add') === '1'
+  );
   const [newTeam, setNewTeam] = useState('');
   const [teamSearch, setTeamSearch] = useState('');
   const [selectedConference, setSelectedConference] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTeamForSchedule, setSelectedTeamForSchedule] = useState(null);
-  const [viewingTeam, setViewingTeam] = useState(null); // For in-app team detail view
-  const [viewingArticle, setViewingArticle] = useState(null); // For full article view
-  const [showNewsSection, setShowNewsSection] = useState(false); // Toggle news section
-  const [teamDetailTab, setTeamDetailTab] = useState('schedule'); // 'schedule' or 'news'
 
   useEffect(() => {
     auth.me()
@@ -39,61 +55,81 @@ export default function MyTeams() {
       });
   }, []);
 
-  // Fetch live games from ESPN
+  const favoriteTeams = user?.favorite_teams || [];
+
+  // ESPN identity for each followed team (id, colors, logo)
+  const { data: resolved = {}, isLoading: resolving } = useQuery({
+    queryKey: ['teams-v2', 'resolve-many', favoriteTeams],
+    queryFn: async () => {
+      const entries = await Promise.all(favoriteTeams.map(async n => [n, await resolveTeam(n).catch(() => null)]));
+      return Object.fromEntries(entries);
+    },
+    enabled: favoriteTeams.length > 0,
+    staleTime: Infinity,
+  });
+  const followedIds = favoriteTeams.map(n => resolved[n]?.id).filter(Boolean);
+
+  // This week's games from ESPN
   const { data: games = [], isLoading: gamesLoading } = useQuery({
     queryKey: ['live-scores'],
     queryFn: fetchScoreboard,
     refetchInterval: 60000,
   });
 
-  // Get the fresh team data from POPULAR_TEAMS (in case user has old cached data)
-  const getTeamData = (teamName) => {
-    return POPULAR_TEAMS.find(t => t.name === teamName) || null;
-  };
-  
-  // When showing schedule, always use fresh team ID from POPULAR_TEAMS
-  const freshTeamData = selectedTeamForSchedule ? getTeamData(selectedTeamForSchedule.name) : null;
-  const teamIdForSchedule = freshTeamData?.id || selectedTeamForSchedule?.id;
+  const { data: standings = [] } = useQuery({
+    queryKey: ['teams-v2', 'standings'],
+    queryFn: () => fetchStandings(),
+    staleTime: 10 * 60 * 1000,
+    enabled: favoriteTeams.length > 0,
+  });
+  const { data: rankings = [] } = useQuery({
+    queryKey: ['teams-v2', 'rankings'],
+    queryFn: fetchRankings,
+    staleTime: 30 * 60 * 1000,
+    enabled: favoriteTeams.length > 0,
+  });
 
-  // Fetch selected team's schedule (for calendar button)
+  // Schedule sheet
+  const teamIdForSchedule = selectedTeamForSchedule?.id;
   const { data: teamSchedule = [], isLoading: scheduleLoading } = useQuery({
     queryKey: ['team-schedule', teamIdForSchedule],
     queryFn: () => fetchTeamSchedule(teamIdForSchedule),
     enabled: !!teamIdForSchedule,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-  });
-
-  // Fetch viewing team's schedule (for team detail view)
-  const { data: viewingTeamSchedule = [], isLoading: viewingScheduleLoading } = useQuery({
-    queryKey: ['team-schedule', viewingTeam?.id],
-    queryFn: () => fetchTeamSchedule(viewingTeam?.id),
-    enabled: !!viewingTeam?.id,
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch viewing team's news
-  const { data: viewingTeamNews = [], isLoading: newsLoading } = useQuery({
-    queryKey: ['team-news', viewingTeam?.id],
-    queryFn: () => fetchTeamNews(viewingTeam?.id, 5),
-    enabled: !!viewingTeam?.id,
+  // News + film for followed teams (first three), or the national feed
+  const newsIds = followedIds.slice(0, 3);
+  const { data: stories = [], isLoading: storiesLoading } = useQuery({
+    queryKey: ['teams-v2', 'stories', newsIds],
+    queryFn: async () => {
+      if (!newsIds.length) return fetchStories({ limit: 20 });
+      const lists = await Promise.all(newsIds.map(id => fetchStories({ teamId: id, limit: 12 })));
+      const seen = new Set();
+      return lists.flat()
+        .filter(s => (seen.has(s.id) ? false : seen.add(s.id)))
+        .sort((a, b) => new Date(b.published || 0) - new Date(a.published || 0));
+    },
+    enabled: !isLoading && (!favoriteTeams.length || !resolving),
+    staleTime: 5 * 60 * 1000,
+  });
+  const { data: videos = [], isLoading: videosLoading } = useQuery({
+    queryKey: ['teams-v2', 'videos', newsIds],
+    queryFn: async () => {
+      const lists = await Promise.all(newsIds.map(id => fetchVideoNews({ teamId: id, limit: 20 })));
+      const seen = new Set();
+      return lists.flat()
+        .filter(v => (seen.has(v.id) ? false : seen.add(v.id)))
+        .sort((a, b) => new Date(b.published || 0) - new Date(a.published || 0));
+    },
+    enabled: newsIds.length > 0,
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch general college football news
-  const { data: latestNews = [], isLoading: latestNewsLoading } = useQuery({
-    queryKey: ['cfb-news'],
-    queryFn: () => fetchNews(15),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const favoriteTeams = user?.favorite_teams || [];
-  
-  // Get unique conferences from teams
+  // Conference list + filtered teams for the Add dialog
   const conferenceList = ['all', ...new Set(POPULAR_TEAMS.map(t => t.conference).filter(Boolean))];
-  
-  // Filter popular teams based on search and conference
   const filteredTeams = POPULAR_TEAMS.filter(t => {
-    const matchesSearch = !teamSearch.trim() || 
+    const matchesSearch = !teamSearch.trim() ||
       t.name.toLowerCase().includes(teamSearch.toLowerCase()) ||
       t.abbreviation.toLowerCase().includes(teamSearch.toLowerCase()) ||
       t.conference?.toLowerCase().includes(teamSearch.toLowerCase());
@@ -101,16 +137,15 @@ export default function MyTeams() {
     return matchesSearch && matchesConference;
   });
 
-  // Filter games for followed teams
-  const myTeamsGames = games.filter(game =>
-    favoriteTeams.some(team =>
-      game.home_team?.toLowerCase().includes(team.toLowerCase()) ||
-      game.away_team?.toLowerCase().includes(team.toLowerCase())
-    )
-  );
-
+  // Games involving followed teams (by ESPN id; exact name as a fallback)
+  const favLower = favoriteTeams.map(t => t.toLowerCase());
+  const isMyGame = (g) =>
+    followedIds.includes(String(g.home_team_id)) || followedIds.includes(String(g.away_team_id)) ||
+    favLower.includes(g.home_team?.toLowerCase()) || favLower.includes(g.away_team?.toLowerCase());
+  const myTeamsGames = favoriteTeams.length ? games.filter(isMyGame) : [];
   const liveGames = myTeamsGames.filter(g => g.status === 'live');
-  const upcomingGames = myTeamsGames.filter(g => g.status === 'upcoming');
+  const upcomingGames = myTeamsGames.filter(g => g.status === 'upcoming').sort((a, b) => new Date(a.full_date) - new Date(b.full_date));
+  const finalGames = myTeamsGames.filter(g => g.status === 'final').sort((a, b) => new Date(b.full_date) - new Date(a.full_date));
 
   const addTeam = (teamName) => {
     if (!teamName.trim()) return;
@@ -135,328 +170,207 @@ export default function MyTeams() {
     toast.success('Team unfollowed');
   };
 
+  const openGame = (g) => navigate(createPageUrl('LiveGame') + liveGameQuery(g));
+  const openTeam = (name) => navigate(createPageUrl('TeamPage') + `?team=${encodeURIComponent(name)}`);
+  const openAdd = () => {
+    if (!user) {
+      toast.error('Sign in to follow teams');
+      navigate(createPageUrl('UserProfile'));
+      return;
+    }
+    setShowAddDialog(true);
+  };
+
+  const scheduleSummary = useMemo(() => summarizeSchedule(teamSchedule), [teamSchedule]);
+  const sheetTeam = selectedTeamForSchedule;
+  const openScheduleGame = (g) =>
+    openGame({
+      id: g.id,
+      home_team: g.is_home ? sheetTeam?.name : g.opponent,
+      away_team: g.is_home ? g.opponent : sheetTeam?.name,
+    });
+
   if (isLoading) {
     return (
       <div className="gd-page flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-500 border-t-transparent" />
       </div>
     );
   }
-  
+
   // Allow viewing even if not logged in
   const displayTeams = user ? favoriteTeams : [];
+  const [featuredLive, ...otherLive] = liveGames;
 
   return (
     <div className="gd-page">
-      {/* Header */}
-      <div className="gd-header px-4 pt-12 pb-6">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/20"
-            onClick={() => navigate(createPageUrl('Home'))}
+      <AppHeader
+        eyebrow="Roster Hub"
+        title="My Teams"
+        actions={
+          <button
+            type="button"
+            aria-label="Discover teams"
+            onClick={() => navigate(createPageUrl('DiscoverTeams'))}
+            className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface"
           >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">My Teams</h1>
-            <p className="text-white/90 text-sm">Follow your favorite teams</p>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-white hover:bg-white/20 flex items-center gap-1"
-            onClick={() => setShowNewsSection(!showNewsSection)}
-          >
-            <Newspaper className="w-5 h-5" />
-            News
-          </Button>
-        </div>
-      </div>
+            <Compass className="h-5 w-5" />
+          </button>
+        }
+      />
 
-      {/* Latest News Section (Collapsible) */}
-      {showNewsSection && (
-        <div className="px-4 py-4 bg-slate-50 border-b border-slate-200">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-slate-900 flex items-center gap-2">
-              <Newspaper className="w-5 h-5 text-orange-500" />
-              Latest College Football News
-            </h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowNewsSection(false)}
+      <main className="space-y-6 px-4 pt-4">
+        {/* Followed teams */}
+        <section className="space-y-3" aria-labelledby="followed-teams">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="gd-eyebrow">Program tracking</p>
+              <h2 id="followed-teams" className="font-display text-2xl font-bold uppercase leading-tight text-on-surface">
+                Following {user && <span className="text-orange-600 dark:text-brand-soft">{displayTeams.length}</span>}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={openAdd}
+              className="gd-btn-primary flex h-10 items-center gap-1.5 rounded-xl px-3.5 font-display text-sm font-bold uppercase tracking-wide"
             >
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-          
-          {latestNewsLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="animate-pulse bg-surface-container h-20 rounded-xl" />
-              ))}
-            </div>
-          ) : latestNews.length > 0 ? (
-            <div className="space-y-3">
-              {latestNews.slice(0, 5).map((article, idx) => (
-                <button
-                  key={article.id || idx}
-                  className="w-full bg-surface-container rounded-xl p-3 shadow-sm text-left hover:shadow-md transition-shadow"
-                  onClick={() => setViewingArticle(article)}
-                >
-                  <div className="flex gap-3">
-                    {article.image && (
-                      <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100">
-                        <img 
-                          src={article.image} 
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-slate-900 text-sm line-clamp-2">
-                        {article.headline}
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {article.published 
-                          ? new Date(article.published).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric'
-                            })
-                          : 'ESPN'
-                        }
-                      </p>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-slate-400 flex-shrink-0 self-center" />
-                  </div>
-                </button>
-              ))}
-              
-              {latestNews.length > 5 && (
-                <button
-                  className="w-full text-center text-sm text-orange-600 font-medium py-2 hover:underline"
-                  onClick={() => {
-                    // Show all news in a sheet
-                    setViewingArticle({ showAll: true, articles: latestNews });
-                  }}
-                >
-                  View All News ({latestNews.length} articles)
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-8 bg-surface-container rounded-xl">
-              <Newspaper className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-              <p className="text-slate-500">No news available</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Favorite Teams */}
-      <div className="px-4 py-4 space-y-4">
-        <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-slate-900">Following ({favoriteTeams.length})</h2>
-            <Button
-              size="sm"
-              className="bg-orange-500 hover:bg-orange-600"
-              onClick={() => setShowAddDialog(true)}
-            >
-              <Plus className="w-4 h-4 mr-1" />
+              <Plus className="h-4 w-4" />
               Add Team
-            </Button>
+            </button>
           </div>
 
           {displayTeams.length > 0 ? (
-            <div className="space-y-2">
-              {displayTeams.map((team, idx) => {
-                const popularTeam = POPULAR_TEAMS.find(t => t.name === team);
-                const teamLogo = popularTeam?.id 
-                  ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${popularTeam.id}.png`
-                  : null;
-                
+            <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+              {displayTeams.map(name => {
+                const team = resolved[name];
+                const row = standings.find(s => team?.id && String(s.team_id) === String(team.id));
+                const rank = rankings.find(r => team?.id && String(r.team_id) === String(team.id))?.rank;
                 return (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden">
-                        {teamLogo ? (
-                          <img 
-                            src={teamLogo} 
-                            alt={team} 
-                            className="w-10 h-10 object-contain"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'flex';
-                            }}
-                          />
-                        ) : null}
-                        <span 
-                          className={`text-xs font-bold text-orange-600 ${teamLogo ? 'hidden' : 'flex'}`}
-                          style={{ display: teamLogo ? 'none' : 'flex' }}
-                        >
-                          {popularTeam?.abbreviation || team.slice(0, 3).toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        {popularTeam?.id ? (
-                          <button 
-                            className="font-medium text-slate-900 hover:text-orange-600 hover:underline block text-left"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setViewingTeam({ id: popularTeam.id, name: team, conference: popularTeam.conference });
-                            }}
-                          >
-                            {team} <ExternalLink className="w-3 h-3 inline ml-1 opacity-50" />
-                          </button>
-                        ) : (
-                          <span className="font-medium text-slate-900 block">{team}</span>
-                        )}
-                        {popularTeam?.conference && (
-                          <Badge variant="outline" className="text-xs mt-0.5">
-                            {popularTeam.conference}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedTeamForSchedule(popularTeam || { name: team, id: null })}
-                        className="text-orange-600 hover:text-orange-700"
-                      >
-                        <Calendar className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeTeam(team)}
-                        className="text-slate-600 hover:text-red-500"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
+                  <FollowedTeamCard
+                    key={name}
+                    name={name}
+                    team={team}
+                    rank={rank}
+                    record={row?.overall_record}
+                    conferenceRecord={row?.conference_record}
+                    conference={row?.conference || team?.conference}
+                    liveGame={liveGames.some(g => team?.id && [String(g.home_team_id), String(g.away_team_id)].includes(team.id))}
+                    onOpen={() => openTeam(name)}
+                    onSchedule={() => setSelectedTeamForSchedule({ name: team?.name || name, id: team?.id || null, team })}
+                    onRemove={() => removeTeam(name)}
+                  />
                 );
               })}
+              <button
+                type="button"
+                onClick={openAdd}
+                className="flex w-32 shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-brand hover:text-orange-600 dark:border-white/[0.12] dark:hover:text-brand-soft"
+              >
+                <Plus className="h-6 w-6" />
+                <span className="font-display text-sm font-bold uppercase">Add team</span>
+              </button>
             </div>
           ) : !user ? (
-            <div className="text-center py-8">
-              <Star className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-600 mb-2">Sign in to follow teams</p>
-              <Button 
-                className="bg-orange-500 hover:bg-orange-600"
-                onClick={() => navigate(createPageUrl('UserProfile'))}
-              >
-                Sign In
-              </Button>
+            <div className="gd-card px-6 py-10 text-center">
+              <Star className="mx-auto mb-3 h-10 w-10 text-amber-500" />
+              <p className="font-display text-xl font-bold uppercase text-on-surface">Sign in to follow teams</p>
+              <p className="mt-1 text-sm text-on-surface-variant">Get live scores, schedules and news for your programs.</p>
+              <div className="mt-4 flex justify-center gap-2">
+                <button type="button" className="gd-btn-primary h-11 rounded-xl px-5" onClick={() => navigate(createPageUrl('UserProfile'))}>
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  className="h-11 rounded-xl bg-surface-container-high px-5 font-semibold text-on-surface"
+                  onClick={() => navigate(createPageUrl('DiscoverTeams'))}
+                >
+                  Browse teams
+                </button>
+              </div>
             </div>
           ) : (
-            <div className="text-center py-8">
-              <Star className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-600 mb-2">No teams followed yet</p>
-              <p className="text-sm text-slate-500">Add teams to see their games here</p>
+            <div className="gd-card px-6 py-10 text-center">
+              <Star className="mx-auto mb-3 h-10 w-10 text-amber-500" />
+              <p className="font-display text-xl font-bold uppercase text-on-surface">No teams followed yet</p>
+              <p className="mt-1 text-sm text-on-surface-variant">Add teams to see their games here.</p>
+              <button
+                type="button"
+                className="gd-btn-primary mt-4 h-11 rounded-xl px-5"
+                onClick={() => navigate(createPageUrl('DiscoverTeams'))}
+              >
+                Discover teams
+              </button>
             </div>
           )}
-        </div>
+        </section>
 
-        {/* Live Games */}
-        {liveGames.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Radio className="w-5 h-5 text-red-500" />
-              <h2 className="font-bold text-slate-900">Live Now</h2>
-              <Badge className="bg-red-500 animate-pulse">
-                {liveGames.length}
-              </Badge>
-            </div>
-            <div className="space-y-3">
-              {liveGames.map((game, idx) => (
-                <div key={idx} className="bg-surface-container rounded-xl shadow-sm p-4 border-l-4 border-red-500">
-                  <div className="flex items-center justify-between mb-2">
-                    <Badge className="bg-red-500">LIVE {game.quarter}</Badge>
-                    {game.tv_network && <span className="text-xs text-slate-500">{game.tv_network}</span>}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {game.away_logo && <img src={game.away_logo} alt="" className="w-8 h-8" />}
-                      <span className="font-semibold">{game.away_team}</span>
-                    </div>
-                    <span className="text-xl font-bold">{game.away_score}</span>
-                  </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center gap-2">
-                      {game.home_logo && <img src={game.home_logo} alt="" className="w-8 h-8" />}
-                      <span className="font-semibold">{game.home_team}</span>
-                    </div>
-                    <span className="text-xl font-bold">{game.home_score}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* Live games */}
+        {featuredLive && (
+          <section className="space-y-3">
+            <SectionTitle aside={<span className="gd-pill bg-red-600 text-white">{liveGames.length} live</span>}>
+              <Radio className="h-5 w-5 text-red-500" />Live Now
+            </SectionTitle>
+            <FeaturedGame game={featuredLive} onOpen={openGame} />
+            {otherLive.map(g => <ScoreCard key={g.id} game={g} favorite onOpen={openGame} />)}
+          </section>
         )}
 
-        {/* Upcoming Games */}
+        {/* Upcoming */}
         {upcomingGames.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Calendar className="w-5 h-5 text-blue-500" />
-              <h2 className="font-bold text-slate-900">Upcoming Games</h2>
-            </div>
-            <div className="space-y-3">
-              {upcomingGames.map((game, idx) => (
-                <div key={idx} className="bg-surface-container rounded-xl shadow-sm p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-slate-600">{game.game_date} • {game.game_time}</span>
-                    {game.tv_network && <Badge variant="outline">{game.tv_network}</Badge>}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {game.away_logo && <img src={game.away_logo} alt="" className="w-8 h-8" />}
-                      <span className="font-semibold">{game.away_team}</span>
-                    </div>
-                    <span className="text-slate-400">-</span>
-                  </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center gap-2">
-                      {game.home_logo && <img src={game.home_logo} alt="" className="w-8 h-8" />}
-                      <span className="font-semibold">{game.home_team}</span>
-                    </div>
-                    <span className="text-slate-400">-</span>
-                  </div>
-                  {game.venue && (
-                    <p className="text-xs text-slate-500 mt-2">📍 {game.venue}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+          <section className="space-y-3">
+            <SectionTitle aside={<span className="text-xs font-semibold normal-case text-on-surface-variant">This week</span>}>
+              <Calendar className="h-5 w-5 text-orange-500" />Upcoming Clashes
+            </SectionTitle>
+            {upcomingGames.map((g, i) => (
+              <div key={g.id}>
+                {g.game_date !== upcomingGames[i - 1]?.game_date && (
+                  <p className="mb-1.5 text-xs font-semibold text-on-surface-variant">{g.game_date}</p>
+                )}
+                <ScoreCard game={g} favorite onOpen={openGame} />
+              </div>
+            ))}
+          </section>
+        )}
+
+        {/* Finals this week */}
+        {finalGames.length > 0 && (
+          <section className="space-y-3">
+            <SectionTitle><Trophy className="h-5 w-5 text-amber-500" />Final Scores</SectionTitle>
+            {finalGames.map(g => <ScoreCard key={g.id} game={g} favorite onOpen={openGame} />)}
+          </section>
         )}
 
         {displayTeams.length > 0 && myTeamsGames.length === 0 && !gamesLoading && (
-          <div className="text-center py-12 bg-surface-container rounded-2xl">
-            <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-3">
-              🏈
-            </div>
-            <p className="text-slate-600 mb-2">No games scheduled today</p>
-            <p className="text-sm text-slate-500">Check the Schedule for upcoming games</p>
-            <Button 
-              className="mt-3 bg-orange-500 hover:bg-orange-600"
+          <div className="gd-card px-6 py-8 text-center">
+            <p className="text-3xl">🏈</p>
+            <p className="mt-2 font-display text-lg font-bold uppercase text-on-surface">No games for your teams this week</p>
+            <p className="mt-1 text-sm text-on-surface-variant">Check the schedule for upcoming games.</p>
+            <button
+              type="button"
+              className="gd-btn-primary mt-4 h-11 rounded-xl px-5"
               onClick={() => navigate(createPageUrl('Schedule'))}
             >
               View Schedule
-            </Button>
+            </button>
           </div>
         )}
-      </div>
+
+        {/* Film room */}
+        {newsIds.length > 0 && (videosLoading || videos.length > 0) && (
+          <section className="space-y-3">
+            <SectionTitle><Film className="h-5 w-5 text-orange-500" />Film Room</SectionTitle>
+            <VideoHighlights videos={videos} isLoading={videosLoading} layout="rail" maxItems={10} />
+          </section>
+        )}
+
+        {/* News */}
+        <section className="space-y-3">
+          <SectionTitle aside={<span className="text-xs font-semibold normal-case text-on-surface-variant">{newsIds.length ? 'Your teams' : 'College football'}</span>}>
+            <Newspaper className="h-5 w-5 text-orange-500" />Insiders &amp; News
+          </SectionTitle>
+          <StoryList stories={stories.filter(s => !s.is_video)} isLoading={storiesLoading} max={8} />
+        </section>
+      </main>
 
       {/* Add Team Dialog */}
       <Dialog open={showAddDialog} onOpenChange={(open) => {
@@ -466,110 +380,96 @@ export default function MyTeams() {
           setSelectedConference('all');
         }
       }}>
-        <DialogContent className="max-w-md max-h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Add Favorite Team</DialogTitle>
+        <DialogContent className="flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md flex-col gap-3 rounded-2xl border-outline-variant bg-surface p-4 dark:border-white/[0.08]">
+          <DialogHeader className="text-left">
+            <DialogTitle className="font-display text-2xl font-bold uppercase text-on-surface">Add a Team</DialogTitle>
+            <DialogDescription className="text-on-surface-variant">Pick a program to follow its games and news.</DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-4 flex-1 overflow-hidden flex flex-col">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                placeholder="Search teams or conferences..."
-                value={teamSearch}
-                onChange={(e) => setTeamSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
 
-            {/* Conference Filter */}
-            <div className="flex flex-wrap gap-1.5">
-              {conferenceList.map((conf) => (
-                <Button
-                  key={conf}
-                  variant={selectedConference === conf ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedConference(conf)}
-                  className={`text-xs h-7 px-2 ${
-                    selectedConference === conf 
-                      ? 'bg-orange-500 hover:bg-orange-600' 
-                      : 'hover:bg-orange-50'
-                  }`}
-                >
-                  {conf === 'all' ? 'All' : conf}
-                </Button>
-              ))}
-            </div>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />
+            <input
+              placeholder="Search teams or conferences…"
+              value={teamSearch}
+              onChange={(e) => setTeamSearch(e.target.value)}
+              className="gd-input pl-10"
+              aria-label="Search teams"
+            />
+          </div>
 
-            {/* Results count */}
-            <p className="text-xs text-slate-500">
-              {filteredTeams.length} team{filteredTeams.length !== 1 ? 's' : ''} found
-              {selectedConference !== 'all' && ` in ${selectedConference}`}
-            </p>
+          <div className="gd-chip-row !mx-0 !px-0" role="toolbar" aria-label="Filter by conference">
+            {conferenceList.map((conf) => (
+              <button
+                key={conf}
+                type="button"
+                className="gd-chip"
+                aria-pressed={selectedConference === conf}
+                onClick={() => setSelectedConference(conf)}
+              >
+                {conf === 'all' ? 'All' : conf}
+              </button>
+            ))}
+          </div>
 
-            {/* Team List */}
-            <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
-              {filteredTeams.length > 0 ? (
-                filteredTeams.map((team) => {
-                  const isFollowed = displayTeams.includes(team.name);
-                  return (
-                    <button
-                      key={`${team.id}-${team.name}`}
-                      onClick={() => !isFollowed && addTeam(team.name)}
-                      disabled={isFollowed}
-                      className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
-                        isFollowed 
-                          ? 'bg-green-50 text-green-700' 
-                          : 'hover:bg-orange-50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden">
-                          <img 
-                            src={`https://a.espncdn.com/i/teamlogos/ncaa/500/${team.id}.png`}
-                            alt={team.name} 
-                            className="w-8 h-8 object-contain"
-                          />
-                        </div>
-                        <div className="text-left">
-                          <span className="font-medium block">{team.name}</span>
-                          <span className="text-xs text-slate-500">{team.conference}</span>
-                        </div>
-                      </div>
-                      {isFollowed ? (
-                        <Badge className="bg-green-500">Following</Badge>
-                      ) : (
-                        <Plus className="w-5 h-5 text-orange-500" />
-                      )}
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="text-center py-8 text-slate-500">
-                  <p>No teams found</p>
-                  <p className="text-xs mt-1">Try a different search or conference</p>
-                </div>
-              )}
-            </div>
+          <p className="text-xs text-on-surface-variant">
+            {filteredTeams.length} team{filteredTeams.length !== 1 ? 's' : ''} found
+            {selectedConference !== 'all' && ` in ${selectedConference}`}
+          </p>
 
-            {/* Custom Team Input */}
-            <div className="pt-3 border-t border-slate-200">
-              <p className="text-xs text-slate-500 mb-2">Or enter a custom team name:</p>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Team name"
-                  value={newTeam}
-                  onChange={(e) => setNewTeam(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addTeam(newTeam)}
-                />
-                <Button
-                  className="bg-orange-500 hover:bg-orange-600"
-                  onClick={() => addTeam(newTeam)}
-                  disabled={!newTeam.trim()}
-                >
-                  Add
-                </Button>
+          <div className="-mx-1 min-h-0 flex-1 space-y-1 overflow-y-auto px-1">
+            {filteredTeams.length > 0 ? (
+              filteredTeams.map((team) => {
+                const isFollowed = displayTeams.includes(team.name);
+                return (
+                  <button
+                    key={`${team.id}-${team.name}`}
+                    type="button"
+                    onClick={() => !isFollowed && addTeam(team.name)}
+                    disabled={isFollowed}
+                    className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition-colors hover:bg-surface-container-high disabled:hover:bg-transparent"
+                  >
+                    <TeamLogo src={`https://a.espncdn.com/i/teamlogos/ncaa/500/${team.id}.png`} abbr={team.abbreviation} className="h-10 w-10" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold text-on-surface">{team.name}</span>
+                      <span className="text-xs text-on-surface-variant">{team.conference}</span>
+                    </span>
+                    {isFollowed ? (
+                      <span className="gd-pill bg-emerald-500/15 text-emerald-600 dark:text-brand-win">Following</span>
+                    ) : (
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand/15 text-orange-600 dark:text-brand-soft" aria-hidden="true">
+                        <Plus className="h-4 w-4" />
+                      </span>
+                    )}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="py-8 text-center text-on-surface-variant">
+                <p>No teams found</p>
+                <p className="mt-1 text-xs">Try a different search or conference</p>
               </div>
+            )}
+          </div>
+
+          <div className="border-t border-outline-variant pt-3 dark:border-white/[0.08]">
+            <p className="mb-2 text-xs text-on-surface-variant">Or enter any team name:</p>
+            <div className="flex gap-2">
+              <input
+                placeholder="Team name"
+                value={newTeam}
+                onChange={(e) => setNewTeam(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addTeam(newTeam)}
+                className="gd-input"
+                aria-label="Custom team name"
+              />
+              <button
+                type="button"
+                className="gd-btn-primary h-12 shrink-0 rounded-xl px-5 disabled:opacity-50"
+                onClick={() => addTeam(newTeam)}
+                disabled={!newTeam.trim()}
+              >
+                Add
+              </button>
             </div>
           </div>
         </DialogContent>
@@ -577,540 +477,63 @@ export default function MyTeams() {
 
       {/* Team Schedule Sheet */}
       <Sheet open={!!selectedTeamForSchedule} onOpenChange={(open) => !open && setSelectedTeamForSchedule(null)}>
-        <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl">
-          <SheetHeader className="pb-4 border-b">
+        <SheetContent side="bottom" className="flex h-[85vh] flex-col gap-0 rounded-t-3xl border-outline-variant bg-surface p-0 dark:border-white/[0.08]">
+          <SheetHeader className="border-b border-outline-variant px-4 pb-3 pt-5 text-left dark:border-white/[0.08]">
             <SheetTitle className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden">
-                {teamIdForSchedule ? (
-                  <img 
-                    src={`https://a.espncdn.com/i/teamlogos/ncaa/500/${teamIdForSchedule}.png`}
-                    alt={selectedTeamForSchedule?.name}
-                    className="w-12 h-12 object-contain"
-                  />
-                ) : (
-                  <span className="text-sm font-bold text-orange-600">
-                    {freshTeamData?.abbreviation || selectedTeamForSchedule?.abbreviation || selectedTeamForSchedule?.name?.slice(0, 3).toUpperCase()}
-                  </span>
-                )}
-              </div>
-              <div>
-                <span className="block">{selectedTeamForSchedule?.name}</span>
-                <span className="text-sm font-normal text-slate-500">
-                  {freshTeamData?.conference || selectedTeamForSchedule?.conference} • {new Date().getFullYear()}-{(new Date().getFullYear() + 1).toString().slice(-2)} Season
-                </span>
-              </div>
+              <TeamLogo
+                src={sheetTeam?.team?.logo || (teamIdForSchedule && `https://a.espncdn.com/i/teamlogos/ncaa/500/${teamIdForSchedule}.png`)}
+                abbr={sheetTeam?.team?.abbreviation || sheetTeam?.name?.slice(0, 3)}
+                className="h-12 w-12"
+              />
+              <span className="min-w-0">
+                <span className="block truncate font-display text-xl font-bold uppercase text-on-surface">{sheetTeam?.name}</span>
+                <SheetDescription className="text-xs font-normal text-on-surface-variant">
+                  {sheetTeam?.team?.conference ? `${sheetTeam.team.conference} • ` : ''}Season schedule
+                </SheetDescription>
+              </span>
             </SheetTitle>
           </SheetHeader>
 
-          <div className="py-4 overflow-y-auto h-[calc(85vh-100px)]">
+          <div className="flex-1 space-y-2 overflow-y-auto p-4">
             {scheduleLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
-              </div>
+              [1, 2, 3, 4].map(i => <Skeleton key={i} className="h-16 w-full rounded-2xl" />)
             ) : !teamIdForSchedule ? (
-              <div className="text-center py-12 text-slate-500">
-                <Calendar className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+              <div className="py-12 text-center text-on-surface-variant">
+                <Calendar className="mx-auto mb-3 h-10 w-10" />
                 <p>Schedule not available for this team</p>
-                <p className="text-sm mt-1">Try removing and re-adding this team from the list</p>
+                <p className="mt-1 text-sm">Try removing and re-adding this team from the list</p>
               </div>
             ) : teamSchedule.length === 0 ? (
-              <div className="text-center py-12 text-slate-500">
-                <Calendar className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+              <div className="py-12 text-center text-on-surface-variant">
+                <Calendar className="mx-auto mb-3 h-10 w-10" />
                 <p>No games found</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {/* Season Record Summary */}
-                {(() => {
-                  const wins = teamSchedule.filter(g => g.result?.won).length;
-                  const losses = teamSchedule.filter(g => g.result && !g.result.won).length;
-                  const upcoming = teamSchedule.filter(g => g.status === 'upcoming').length;
-                  return (
-                    <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-4 mb-4 text-white">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-white/80 text-sm">Season Record</p>
-                          <p className="text-3xl font-bold">{wins} - {losses}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-white/80 text-sm">Remaining</p>
-                          <p className="text-2xl font-bold">{upcoming} games</p>
-                        </div>
-                      </div>
+              <>
+                <div className="mb-2 grid grid-cols-3 gap-2">
+                  {[
+                    ['Record', `${scheduleSummary.wins}-${scheduleSummary.losses}`],
+                    ['Remaining', scheduleSummary.remaining],
+                    ['Streak', scheduleSummary.streak || '—'],
+                  ].map(([label, value]) => (
+                    <div key={label} className="gd-card p-2.5 text-center">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{label}</p>
+                      <p className="gd-score text-2xl text-on-surface">{value}</p>
                     </div>
-                  );
-                })()}
-
-                {/* Game List */}
+                  ))}
+                </div>
                 {teamSchedule.map((game, idx) => (
-                  <div 
-                    key={game.id || idx} 
-                    className={`p-4 rounded-xl border ${
-                      game.status === 'live' 
-                        ? 'border-red-300 bg-red-50' 
-                        : game.result?.won 
-                          ? 'border-green-200 bg-green-50' 
-                          : game.result && !game.result.won 
-                            ? 'border-red-200 bg-red-50/50' 
-                            : 'border-slate-200 bg-surface-container'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {/* Week number */}
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-semibold text-slate-600">
-                          {game.week}
-                        </div>
-                        
-                        {/* Opponent info */}
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                            <img 
-                              src={game.opponent_logo || `https://a.espncdn.com/i/teamlogos/ncaa/500/${game.opponent_id || '0'}.png`}
-                              alt={game.opponent} 
-                              className="w-8 h-8 object-contain"
-                              onError={(e) => {
-                                e.target.src = 'https://a.espncdn.com/i/teamlogos/ncaa/500/default-team-logo-500.png';
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-slate-900">
-                                {game.is_home ? 'vs' : '@'} {game.opponent_rank && <span className="text-orange-500">#{game.opponent_rank}</span>}{' '}
-                                {game.opponent_id ? (
-                                  <button 
-                                    className="hover:text-orange-600 hover:underline text-left"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setViewingTeam({ id: game.opponent_id, name: game.opponent });
-                                    }}
-                                  >
-                                    {game.opponent}
-                                  </button>
-                                ) : (
-                                  game.opponent
-                                )}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-slate-500">
-                              <span>{game.game_date}</span>
-                              {game.status === 'upcoming' && <span>• {game.time}</span>}
-                              {game.tv_network && (
-                                <>
-                                  <Tv className="w-3 h-3" />
-                                  <span>{game.tv_network}</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Result/Status */}
-                      <div className="text-right">
-                        {game.status === 'live' ? (
-                          <Badge className="bg-red-500 animate-pulse">LIVE</Badge>
-                        ) : game.result ? (
-                          <div>
-                            <Badge className={game.result.won ? 'bg-green-500' : 'bg-red-500'}>
-                              {game.result.won ? 'W' : 'L'}
-                            </Badge>
-                            <p className="text-sm font-semibold mt-1">
-                              {game.result.team_score} - {game.result.opponent_score}
-                            </p>
-                          </div>
-                        ) : (
-                          <ChevronRight className="w-5 h-5 text-slate-400" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                  <ScheduleRow key={game.id || idx} game={game} onOpen={openScheduleGame} />
                 ))}
-              </div>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* In-App Team Detail View */}
-      <Sheet open={!!viewingTeam} onOpenChange={(open) => {
-        if (!open) {
-          setViewingTeam(null);
-          setTeamDetailTab('schedule'); // Reset to schedule tab when closing
-        }
-      }}>
-        <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl overflow-hidden flex flex-col">
-          {/* Header */}
-          <SheetHeader className="pb-4 border-b flex-shrink-0">
-            <SheetTitle className="flex items-center gap-4">
-              {viewingTeam?.id && (
-                <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden">
-                  <img 
-                    src={`https://a.espncdn.com/i/teamlogos/ncaa/500/${viewingTeam.id}.png`}
-                    alt={viewingTeam?.name}
-                    className="w-14 h-14 object-contain"
-                  />
-                </div>
-              )}
-              <div className="flex-1">
-                <span className="block text-xl">{viewingTeam?.name}</span>
-                <div className="flex items-center gap-2 mt-1">
-                  {viewingTeam?.conference && (
-                    <Badge variant="outline" className="text-xs">{viewingTeam.conference}</Badge>
-                  )}
-                  {!viewingScheduleLoading && viewingTeamSchedule.length > 0 && (
-                    <Badge className="bg-green-500 text-xs">
-                      {viewingTeamSchedule.filter(g => g.result?.won).length}-{viewingTeamSchedule.filter(g => g.result && !g.result.won).length}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </SheetTitle>
-          </SheetHeader>
-          
-          {/* Tab Navigation */}
-          <div className="flex gap-2 pt-4 pb-2 border-b flex-shrink-0">
-            <button
-              onClick={() => setTeamDetailTab('schedule')}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-colors ${
-                teamDetailTab === 'schedule'
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              <Calendar className="w-5 h-5" />
-              Schedule
-            </button>
-            <button
-              onClick={() => setTeamDetailTab('news')}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-colors ${
-                teamDetailTab === 'news'
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              <Newspaper className="w-5 h-5" />
-              News
-              {viewingTeamNews.length > 0 && (
-                <Badge className="bg-white/20 text-xs px-1.5">{viewingTeamNews.length}</Badge>
-              )}
-            </button>
-          </div>
-
-          {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto py-4 space-y-6">
-            {viewingScheduleLoading || newsLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
-              </div>
-            ) : teamDetailTab === 'schedule' ? (
-              <>
-                {/* Season Record Summary */}
-                {viewingTeamSchedule.length > 0 && (
-                  <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-4 text-white">
-                    <h3 className="text-sm font-medium opacity-90 mb-2">{new Date().getFullYear()} Season</h3>
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                      <div>
-                        <p className="text-3xl font-bold">{viewingTeamSchedule.filter(g => g.result?.won).length}</p>
-                        <p className="text-xs opacity-80">Wins</p>
-                      </div>
-                      <div>
-                        <p className="text-3xl font-bold">{viewingTeamSchedule.filter(g => g.result && !g.result.won).length}</p>
-                        <p className="text-xs opacity-80">Losses</p>
-                      </div>
-                      <div>
-                        <p className="text-3xl font-bold">{viewingTeamSchedule.filter(g => g.status === 'upcoming').length}</p>
-                        <p className="text-xs opacity-80">Remaining</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Recent/Upcoming Games */}
-                <div>
-                  <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-orange-500" />
-                    Schedule
-                  </h3>
-                  
-                  {viewingTeamSchedule.length > 0 ? (
-                    <div className="space-y-2">
-                      {viewingTeamSchedule.map((game, idx) => {
-                        const isWin = game.result?.won === true;
-                        const isLoss = game.result && !game.result.won;
-                        const isLive = game.status === 'live';
-                        
-                        return (
-                          <div
-                            key={game.id || idx}
-                            className={`flex items-center gap-3 p-3 rounded-xl border ${
-                              isWin ? 'border-green-200 bg-green-50' :
-                              isLoss ? 'border-red-200 bg-red-50' :
-                              isLive ? 'border-red-300 bg-red-50' :
-                              'border-slate-200 bg-surface-container'
-                            }`}
-                          >
-                            {/* Opponent Logo */}
-                            <div className="w-10 h-10 rounded-lg bg-surface-container border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                              <img 
-                                src={game.opponent_logo || `https://a.espncdn.com/i/teamlogos/ncaa/500/${game.opponent_id || '0'}.png`}
-                                alt={game.opponent} 
-                                className="w-8 h-8 object-contain"
-                              />
-                            </div>
-                            
-                            {/* Game Info */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1">
-                                <span className="text-xs text-slate-500">{game.is_home ? 'vs' : '@'}</span>
-                                {game.opponent_rank && (
-                                  <span className="text-xs font-bold text-orange-500">#{game.opponent_rank}</span>
-                                )}
-                                <span className="font-medium text-slate-900 truncate">{game.opponent}</span>
-                              </div>
-                              <div className="text-xs text-slate-500 mt-0.5">
-                                {game.game_date}
-                                {game.status === 'upcoming' && ` • ${game.time}`}
-                                {game.tv_network && ` • ${game.tv_network}`}
-                              </div>
-                            </div>
-                            
-                            {/* Result */}
-                            <div className="text-right flex-shrink-0">
-                              {isLive ? (
-                                <Badge className="bg-red-500 animate-pulse">LIVE</Badge>
-                              ) : game.result ? (
-                                <div className="text-right">
-                                  <Badge className={`${isWin ? 'bg-green-500' : 'bg-red-500'} mb-1`}>
-                                    {isWin ? 'W' : 'L'}
-                                  </Badge>
-                                  <p className="text-sm font-bold text-slate-700">
-                                    {game.result.team_score}-{game.result.opponent_score}
-                                  </p>
-                                </div>
-                              ) : (
-                                <span className="text-xs text-slate-400">Upcoming</span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 bg-slate-50 rounded-xl">
-                      <Calendar className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                      <p className="text-slate-500">No schedule available</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Follow Button */}
-                {viewingTeam && !favoriteTeams.includes(viewingTeam.name) && (
-                  <Button
-                    className="w-full bg-orange-500 hover:bg-orange-600"
-                    onClick={() => {
-                      addTeam(viewingTeam.name);
-                      setViewingTeam(null);
-                    }}
-                  >
-                    <Star className="w-4 h-4 mr-2" />
-                    Follow {viewingTeam.name}
-                  </Button>
-                )}
-              </>
-            ) : (
-              /* News Tab Content */
-              <>
-                {viewingTeamNews.length > 0 ? (
-                  <div className="space-y-3">
-                    {viewingTeamNews.map((article, idx) => (
-                      <button
-                        key={article.id || idx}
-                        className="w-full bg-surface-container border border-slate-200 rounded-xl overflow-hidden text-left hover:bg-slate-50 hover:border-orange-200 transition-colors"
-                        onClick={() => setViewingArticle(article)}
-                      >
-                        <div className="flex gap-3 p-3">
-                          {article.image && (
-                            <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100">
-                              <img 
-                                src={article.image} 
-                                alt=""
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-slate-900 text-sm line-clamp-2 mb-1">
-                              {article.headline}
-                            </h4>
-                            {article.description && (
-                              <p className="text-xs text-slate-500 line-clamp-2 mb-2">
-                                {article.description}
-                              </p>
-                            )}
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-slate-400">
-                                {article.publishedFormatted || article.source}
-                              </span>
-                              <ChevronRight className="w-4 h-4 text-orange-500" />
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 bg-slate-50 rounded-xl">
-                    <Newspaper className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-600 font-medium">No news available</p>
-                    <p className="text-sm text-slate-500 mt-1">Check back later for updates on {viewingTeam?.name}</p>
-                  </div>
-                )}
-
-                {/* Follow Button */}
-                {viewingTeam && !favoriteTeams.includes(viewingTeam.name) && (
-                  <Button
-                    className="w-full bg-orange-500 hover:bg-orange-600"
-                    onClick={() => {
-                      addTeam(viewingTeam.name);
-                      setViewingTeam(null);
-                    }}
-                  >
-                    <Star className="w-4 h-4 mr-2" />
-                    Follow {viewingTeam.name}
-                  </Button>
-                )}
+                <button
+                  type="button"
+                  className="mt-2 h-11 w-full rounded-xl bg-surface-container-high font-semibold text-on-surface"
+                  onClick={() => openTeam(sheetTeam?.name)}
+                >
+                  Open team page
+                </button>
               </>
             )}
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Full Article View */}
-      <Sheet open={!!viewingArticle} onOpenChange={(open) => !open && setViewingArticle(null)}>
-        <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl overflow-hidden flex flex-col">
-          <SheetHeader className="pb-4 border-b flex-shrink-0">
-            <SheetTitle className="flex items-center gap-2">
-              <Newspaper className="w-5 h-5 text-orange-500" />
-              {viewingArticle?.showAll ? 'All News' : 'Article'}
-            </SheetTitle>
-          </SheetHeader>
-          
-          <div className="flex-1 overflow-y-auto py-4">
-            {viewingArticle?.showAll ? (
-              // Show all articles list
-              <div className="space-y-3">
-                {viewingArticle.articles?.map((article, idx) => (
-                  <button
-                    key={article.id || idx}
-                    className="w-full bg-surface-container rounded-xl p-3 border border-slate-200 text-left hover:bg-slate-50 transition-colors"
-                    onClick={() => setViewingArticle(article)}
-                  >
-                    <div className="flex gap-3">
-                      {article.image && (
-                        <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100">
-                          <img 
-                            src={article.image} 
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-slate-900 text-sm line-clamp-2 mb-1">
-                          {article.headline}
-                        </h3>
-                        {article.description && (
-                          <p className="text-xs text-slate-500 line-clamp-2">
-                            {article.description}
-                          </p>
-                        )}
-                        <p className="text-xs text-slate-400 mt-1">
-                          {article.published 
-                            ? new Date(article.published).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric'
-                              })
-                            : 'ESPN'
-                          }
-                        </p>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-slate-400 flex-shrink-0 self-center" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : viewingArticle ? (
-              // Show single article
-              <div className="space-y-4">
-                {/* Article Image */}
-                {viewingArticle.image && (
-                  <div className="w-full aspect-video rounded-2xl overflow-hidden bg-slate-100">
-                    <img 
-                      src={viewingArticle.image} 
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
-                
-                {/* Headline */}
-                <h1 className="text-xl font-bold text-slate-900 leading-tight">
-                  {viewingArticle.headline}
-                </h1>
-                
-                {/* Meta info */}
-                <div className="flex items-center gap-3 text-sm text-slate-500">
-                  <span className="font-medium text-orange-600">{viewingArticle.source || 'ESPN'}</span>
-                  <span>•</span>
-                  <span>
-                    {viewingArticle.published 
-                      ? new Date(viewingArticle.published).toLocaleDateString('en-US', {
-                          weekday: 'long',
-                          month: 'long',
-                          day: 'numeric',
-                          year: 'numeric'
-                        })
-                      : 'Recent'
-                    }
-                  </span>
-                </div>
-                
-                {/* Description/Summary */}
-                {viewingArticle.description && (
-                  <div className="bg-slate-50 rounded-xl p-4">
-                    <p className="text-slate-700 leading-relaxed">
-                      {viewingArticle.description}
-                    </p>
-                  </div>
-                )}
-                
-                {/* Read Full Article Button */}
-                {viewingArticle.link && (
-                  <a
-                    href={viewingArticle.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full p-4 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 transition-colors"
-                  >
-                    <ExternalLink className="w-5 h-5" />
-                    Read Full Article on ESPN
-                  </a>
-                )}
-                
-                {/* Back to all news */}
-                {latestNews.length > 0 && (
-                  <button
-                    className="w-full text-center text-sm text-slate-500 py-2 hover:text-orange-600"
-                    onClick={() => setViewingArticle({ showAll: true, articles: latestNews })}
-                  >
-                    ← Back to All News
-                  </button>
-                )}
-              </div>
-            ) : null}
           </div>
         </SheetContent>
       </Sheet>

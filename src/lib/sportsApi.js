@@ -457,7 +457,7 @@ export async function fetchRankings() {
     return apPoll?.ranks?.map(rank => ({
       rank: rank.current,
       previous_rank: rank.previous,
-      team: rank.team?.displayName || rank.team?.name,
+      team: rank.team?.displayName || [rank.team?.location, rank.team?.name].filter(Boolean).join(' '),
       team_id: rank.team?.id,
       logo: rank.team?.logo,
       record: rank.recordSummary,

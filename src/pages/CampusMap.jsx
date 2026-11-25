@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { TailgateIcon } from '@/components/icons/GameDayIcons';
 import { client } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -338,7 +339,7 @@ export default function CampusMap() {
           )}
           {tailgates.some(t => t.location?.lat) && !q && (
             <p className="flex items-center gap-1.5 px-1 text-xs text-on-surface-variant">
-              <PartyPopper className="h-3.5 w-3.5" />Green pins are public tailgates. Tap one for directions.
+              <TailgateIcon className="h-3.5 w-3.5" />Green pins are public tailgates. Tap one for directions.
             </p>
           )}
         </section>

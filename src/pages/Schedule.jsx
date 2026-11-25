@@ -1,38 +1,62 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
+import {
   fetchGamesForCalendarEntry,
-  fetchRankings, 
+  fetchRankings,
   fetchSeasonCalendar,
-  fetchTeamSchedule, 
+  fetchTeamSchedule,
   getCurrentSeason,
   POPULAR_TEAMS,
 } from '@/lib/sportsApi';
 import { useQuery } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
-import { 
-  ArrowLeft, Calendar as CalendarIcon, ChevronRight, ChevronLeft, Tv, MapPin, 
-  Trophy, TrendingUp, TrendingDown, Search, X, Star, Home as HomeIcon,
-  Filter, RefreshCw, Clock
+import {
+  Calendar as CalendarIcon, ChevronRight, ChevronLeft, Tv, Trophy, TrendingUp, TrendingDown,
+  Search, X, Star, RefreshCw, Flame,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
+import AppHeader from '@/components/layout/AppHeader';
 import SafetyButton from '@/components/common/SafetyButton';
 import { Skeleton } from '@/components/common/LoadingSkeleton';
 import TeamDetailView, { ArticleView } from '@/components/teams/TeamDetailView';
+import ScheduleGameCard from '@/components/feed-v2/ScheduleGameCard';
+import { cn } from '@/lib/utils';
+
+const localDateKey = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const TABS = [
+  { id: 'season', label: 'Season', icon: CalendarIcon },
+  { id: 'team', label: 'By Team', icon: Star },
+  { id: 'rankings', label: 'Rankings', icon: Trophy },
+];
+
+const GAME_FILTERS = [
+  { id: 'all', label: 'All Games' },
+  { id: 'top25', label: 'Top 25', icon: Star },
+  { id: 'ranked', label: 'Ranked vs Ranked', icon: Flame },
+];
+
+function RankDelta({ team }) {
+  if (!team.previous_rank || team.previous_rank === team.rank || team.trend === 'same') {
+    return <span className="text-xs font-semibold text-on-surface-variant">–</span>;
+  }
+  const up = team.trend === 'up';
+  const diff = Math.abs(team.previous_rank - team.rank);
+  return (
+    <span className={cn('flex items-center gap-0.5 text-xs font-bold tabular-nums', up ? 'text-emerald-600 dark:text-brand-win' : 'text-red-600')}>
+      {up ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+      {up ? '+' : '-'}{diff}
+    </span>
+  );
+}
 
 export default function Schedule() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('season');
+  // ?tab=rankings / ?tab=team deep-link (e.g. from News "Full poll")
+  const [activeTab, setActiveTab] = useState(() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    return TABS.some(x => x.id === t) ? t : 'season';
+  });
   const [seasonYear, setSeasonYear] = useState(() => getCurrentSeason());
   const [selectedWeekIndex, setSelectedWeekIndex] = useState(0);
   const [selectedTeam, setSelectedTeam] = useState(null);
@@ -40,6 +64,7 @@ export default function Schedule() {
   const [gameFilter, setGameFilter] = useState('all');
   const [viewingTeamDetail, setViewingTeamDetail] = useState(null);
   const [viewingArticle, setViewingArticle] = useState(null);
+  const weekChipRefs = useRef({});
 
   const { data: calendarEntries = [], isLoading: calendarLoading } = useQuery({
     queryKey: ['season-calendar', seasonYear],
@@ -50,7 +75,7 @@ export default function Schedule() {
   useEffect(() => {
     if (!calendarEntries.length) return;
     const now = new Date();
-    
+
     // First, find all entries that contain "now"
     const matchingIndices = calendarEntries
       .map((e, idx) => {
@@ -60,7 +85,7 @@ export default function Schedule() {
         return (now >= start && now <= end) ? idx : -1;
       })
       .filter(idx => idx >= 0);
-    
+
     if (matchingIndices.length > 0) {
       // Prefer CFP or Bowls over regular weeks if we're in postseason time
       const cfpIdx = matchingIndices.find(i => calendarEntries[i].label === 'CFP');
@@ -81,6 +106,11 @@ export default function Schedule() {
       setSelectedWeekIndex(futureIdx >= 0 ? futureIdx : Math.max(0, calendarEntries.length - 1));
     }
   }, [calendarEntries]);
+
+  // Keep the selected week chip in view
+  useEffect(() => {
+    weekChipRefs.current[selectedWeekIndex]?.scrollIntoView?.({ inline: 'center', block: 'nearest' });
+  }, [selectedWeekIndex, calendarEntries.length, activeTab]);
 
   const selectedEntry = calendarEntries[selectedWeekIndex];
 
@@ -110,7 +140,7 @@ export default function Schedule() {
   const filteredTeams = useMemo(() => {
     if (!teamSearch) return POPULAR_TEAMS;
     const query = teamSearch.toLowerCase();
-    return POPULAR_TEAMS.filter(team => 
+    return POPULAR_TEAMS.filter(team =>
       team.name.toLowerCase().includes(query) ||
       team.abbreviation.toLowerCase().includes(query)
     );
@@ -118,47 +148,54 @@ export default function Schedule() {
 
   // Filter games based on filter selection
   const filteredGames = useMemo(() => {
-    if (gameFilter === 'all') return games;
-    if (gameFilter === 'ranked') {
-      return games.filter(g => g.home_rank || g.away_rank);
-    }
-    if (gameFilter === 'top25') {
-      return games.filter(g => 
-        (g.home_rank && g.home_rank <= 25) || 
-        (g.away_rank && g.away_rank <= 25)
-      );
-    }
+    if (gameFilter === 'top25') return games.filter(g => g.home_rank || g.away_rank);
+    if (gameFilter === 'ranked') return games.filter(g => g.home_rank && g.away_rank);
     return games;
   }, [games, gameFilter]);
 
-  // Group games by date
+  // Group games by local calendar day (sorted chronologically, TBD last)
   const gamesByDate = useMemo(() => {
-    const grouped = {};
+    const grouped = new Map();
     filteredGames.forEach(game => {
-      const date = game.full_date 
-        ? new Date(game.full_date).toLocaleDateString('en-US', { 
-            weekday: 'long', 
-            month: 'long', 
-            day: 'numeric' 
-          })
-        : 'TBD';
-      if (!grouped[date]) grouped[date] = [];
-      grouped[date].push(game);
+      const d = game.full_date ? new Date(game.full_date) : null;
+      const key = d && !Number.isNaN(d.getTime()) ? localDateKey(d) : 'TBD';
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          key,
+          date: key === 'TBD' ? 'Date TBD' : d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
+          games: [],
+        });
+      }
+      grouped.get(key).games.push(game);
     });
-    
-    // Sort dates
-    const sortedDates = Object.keys(grouped).sort((a, b) => {
-      if (a === 'TBD') return 1;
-      if (b === 'TBD') return -1;
-      return new Date(a) - new Date(b);
+    return [...grouped.values()].sort((a, b) => {
+      if (a.key === 'TBD') return 1;
+      if (b.key === 'TBD') return -1;
+      return a.key.localeCompare(b.key);
     });
-    
-    return sortedDates.map(date => ({ date, games: grouped[date] }));
   }, [filteredGames]);
-  
+
   const liveGames = games.filter(g => g.status === 'live');
   const upcomingGames = games.filter(g => g.status === 'upcoming');
   const completedGames = games.filter(g => g.status === 'final');
+  const todayKey = localDateKey(new Date());
+
+  // Current AP top teams and their game in the selected week
+  const showPollPreview = seasonYear === getCurrentSeason() && rankings.length > 0 && games.length > 0;
+  const pollPreview = useMemo(() => rankings.slice(0, 6).map(team => {
+    const game = games.find(g => team.team_id && (String(g.home_team_id) === String(team.team_id) || String(g.away_team_id) === String(team.team_id)));
+    let matchup = null;
+    if (game) {
+      const isHome = String(game.home_team_id) === String(team.team_id);
+      const oppRank = isHome ? game.away_rank : game.home_rank;
+      const opp = isHome ? (game.away_short || game.away_team) : (game.home_short || game.home_team);
+      const state = game.status === 'live' ? 'Live' : game.status === 'final'
+        ? `Final ${isHome ? game.home_score : game.away_score}-${isHome ? game.away_score : game.home_score}`
+        : `${game.game_date}, ${game.game_time}`;
+      matchup = { text: `${isHome ? 'vs' : 'at'} ${oppRank ? `#${oppRank} ` : ''}${opp}`, state, live: game.status === 'live', game };
+    }
+    return { team, matchup };
+  }), [rankings, games]);
 
   const navigateWeek = (direction) => {
     if (direction === 'next' && selectedWeekIndex < calendarEntries.length - 1) {
@@ -167,474 +204,430 @@ export default function Schedule() {
       setSelectedWeekIndex(selectedWeekIndex - 1);
     }
   };
-  
+
+  const openGame = (g) =>
+    navigate(createPageUrl('LiveGame') + `?gameId=${g.id}&home=${encodeURIComponent(g.home_team)}&away=${encodeURIComponent(g.away_team)}`);
+
+  const entryRange = selectedEntry
+    ? (selectedEntry.detail
+      ? selectedEntry.detail
+      : (selectedEntry.startDate && selectedEntry.endDate
+        ? `${new Date(selectedEntry.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(selectedEntry.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+        : ''))
+    : '';
+  const phaseLabel = selectedEntry?.label === 'CFP' ? 'College Football Playoff'
+    : selectedEntry?.label === 'Bowls' ? 'Bowl Season'
+      : selectedEntry?.label === 'All-Star' ? 'All-Star Games'
+        : 'Regular Season';
+
   return (
     <div className="gd-page">
-      {/* Header */}
-      <div className="gd-header px-4 pt-6 pb-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-white hover:bg-white/20"
-              onClick={() => navigate(createPageUrl('Home'))}
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-xl font-bold">{seasonYear} Season Schedule</h1>
-              <p className="text-white/80 text-sm">
-                {selectedEntry?.label === 'CFP' ? '🏆 College Football Playoff' : 
-                 selectedEntry?.label === 'Bowls' ? '🎉 Bowl Season' :
-                 'All college football games'}
-              </p>
-            </div>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/20"
+      <AppHeader
+        eyebrow="Saturday Live"
+        title="Schedule"
+        subtitle={`${seasonYear} season`}
+        back="Home"
+        actions={
+          <button
+            type="button"
+            aria-label="Refresh schedule"
             onClick={() => refetch()}
             disabled={isFetching}
+            className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface"
           >
-            <RefreshCw className={`w-5 h-5 ${isFetching ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
-
-        {/* Season Year Selector */}
-        <div className="flex gap-2 mb-3">
-          {[getCurrentSeason() - 2, getCurrentSeason() - 1, getCurrentSeason()].map(year => (
-            <button
-              key={year}
-              onClick={() => {
-                setSeasonYear(year);
-                setSelectedWeekIndex(0);
-              }}
-              className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                seasonYear === year
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-white/20 text-white/80 hover:bg-white/30'
-              }`}
-            >
-              {year} Season
+            <RefreshCw className={`h-5 w-5 ${isFetching ? 'animate-spin' : ''}`} />
+          </button>
+        }
+      >
+        <div className="gd-segment grid-cols-3" role="tablist" aria-label="Schedule view">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button key={id} type="button" role="tab" aria-selected={activeTab === id} onClick={() => setActiveTab(id)}>
+              <Icon className="h-4 w-4" />
+              {label}
             </button>
           ))}
         </div>
+      </AppHeader>
 
-        {/* Quick Stats */}
-        <div className="flex gap-3">
-          <div className="flex-1 bg-white/10 rounded-xl p-3 text-center">
-            <p className="text-2xl font-bold text-red-400">{liveGames.length}</p>
-            <p className="text-xs text-white/70">Live</p>
-          </div>
-          <div className="flex-1 bg-white/10 rounded-xl p-3 text-center">
-            <p className="text-2xl font-bold text-blue-400">{upcomingGames.length}</p>
-            <p className="text-xs text-white/70">Upcoming</p>
-          </div>
-          <div className="flex-1 bg-white/10 rounded-xl p-3 text-center">
-            <p className="text-2xl font-bold text-green-400">{completedGames.length}</p>
-            <p className="text-xs text-white/70">Final</p>
-          </div>
-        </div>
-      </div>
-      
-      {/* Tabs */}
-      <div className="px-4 py-4">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full grid grid-cols-3 mb-4">
-            <TabsTrigger value="season" className="flex items-center gap-1">
-              <CalendarIcon className="w-4 h-4" />
-              Season
-            </TabsTrigger>
-            <TabsTrigger value="team" className="flex items-center gap-1">
-              <Star className="w-4 h-4" />
-              By Team
-            </TabsTrigger>
-            <TabsTrigger value="rankings" className="flex items-center gap-1">
-              <Trophy className="w-4 h-4" />
-              Rankings
-            </TabsTrigger>
-          </TabsList>
-          
-          {/* Season View - Games by Week */}
-          <TabsContent value="season" className="space-y-4">
-            {/* Week Navigation */}
-            <div className="bg-surface-container rounded-2xl shadow-sm p-4">
-              <div className="flex items-center justify-between mb-3">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+      <main className="space-y-4 px-4 pt-4">
+        {/* ---------------- Season view: games by week ---------------- */}
+        {activeTab === 'season' && (
+          <>
+            {/* Season year */}
+            <div className="gd-chip-row" role="toolbar" aria-label="Season">
+              {[getCurrentSeason() - 2, getCurrentSeason() - 1, getCurrentSeason()].map(year => (
+                <button
+                  key={year}
+                  type="button"
+                  className="gd-chip"
+                  aria-pressed={seasonYear === year}
+                  onClick={() => {
+                    setSeasonYear(year);
+                    setSelectedWeekIndex(0);
+                  }}
+                >
+                  {year} Season
+                </button>
+              ))}
+            </div>
+
+            {/* Week selector */}
+            <section className="gd-card p-3.5" aria-label="Week">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label="Previous week"
                   onClick={() => navigateWeek('prev')}
                   disabled={calendarLoading || selectedWeekIndex === 0}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-container-high text-on-surface disabled:opacity-40 dark:bg-surface"
                 >
-                  <ChevronLeft className="w-5 h-5" />
-                </Button>
-                
-                <Select
-                  value={String(selectedWeekIndex)}
-                  onValueChange={(value) => setSelectedWeekIndex(Number(value))}
-                >
-                  <SelectTrigger className="w-[220px] font-semibold">
-                    <SelectValue placeholder="Select week" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {calendarEntries.map((entry, idx) => (
-                      <SelectItem key={idx} value={String(idx)}>
-                        {entry.label}{entry.detail ? ` (${entry.detail})` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <div className="min-w-0 flex-1 text-center">
+                  <p className="gd-eyebrow truncate">{phaseLabel}</p>
+                  <p className="truncate font-display text-xl font-bold uppercase leading-tight text-on-surface">
+                    {selectedEntry?.label || (calendarLoading ? 'Loading…' : 'No weeks')}
+                  </p>
+                  {entryRange && <p className="truncate text-xs text-on-surface-variant">{entryRange}</p>}
+                </div>
+                <button
+                  type="button"
+                  aria-label="Next week"
                   onClick={() => navigateWeek('next')}
                   disabled={calendarLoading || selectedWeekIndex === calendarEntries.length - 1}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-container-high text-on-surface disabled:opacity-40 dark:bg-surface"
                 >
-                  <ChevronRight className="w-5 h-5" />
-                </Button>
+                  <ChevronRight className="h-5 w-5" />
+                </button>
               </div>
 
-              {/* Quick Week Buttons - Scrollable */}
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2">
+              {/* Quick week chips */}
+              <div className="-mx-3.5 mt-3 flex gap-2 overflow-x-auto px-3.5 pb-1 [scrollbar-width:none]" role="tablist" aria-label="Select week">
                 {calendarEntries.map((entry, idx) => {
-                  // Determine button label and style
                   let label = entry.label;
-                  if (label.startsWith('Week ')) label = `W${entry.value}`;
-
+                  if (label.startsWith('Week ')) label = `Wk ${entry.value}`;
                   const isCFP = entry.label === 'CFP';
                   const isBowls = entry.label === 'Bowls';
-                  const isPostseason = isCFP || isBowls || entry.label === 'All-Star';
-                  
-                  // Determine button colors
-                  let buttonClasses = 'bg-slate-100 text-slate-600 hover:bg-slate-200';
-                  if (selectedWeekIndex === idx) {
-                    if (isCFP) buttonClasses = 'bg-purple-600 text-white ring-2 ring-purple-300';
-                    else if (isBowls) buttonClasses = 'bg-green-600 text-white ring-2 ring-green-300';
-                    else buttonClasses = 'bg-orange-500 text-white ring-2 ring-orange-300';
-                  } else {
-                    if (isCFP) buttonClasses = 'bg-purple-100 text-purple-700 hover:bg-purple-200 font-bold';
-                    else if (isBowls) buttonClasses = 'bg-green-100 text-green-700 hover:bg-green-200';
-                  }
-                  
                   return (
                     <button
                       key={idx}
+                      ref={(el) => { weekChipRefs.current[idx] = el; }}
+                      type="button"
+                      role="tab"
+                      aria-selected={selectedWeekIndex === idx}
                       onClick={() => setSelectedWeekIndex(idx)}
-                      className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${buttonClasses}`}
+                      className={cn('gd-chip', !(selectedWeekIndex === idx) && (isCFP || isBowls) && 'text-amber-600 dark:text-brand-highlight')}
                     >
-                      {isCFP ? '🏆 CFP' : label}
+                      {isCFP && <Trophy className="h-3.5 w-3.5" />}
+                      {label}
                     </button>
                   );
                 })}
               </div>
 
-              {/* Date Range Display */}
-              {selectedEntry && (
-                <p className="text-center text-sm text-slate-500 mt-2">
-                  {selectedEntry.detail
-                    ? selectedEntry.detail
-                    : (selectedEntry.startDate && selectedEntry.endDate
-                      ? `${new Date(selectedEntry.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(selectedEntry.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
-                      : '')}
-                </p>
-              )}
-
-              {/* Filter */}
-              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
-                <Filter className="w-4 h-4 text-slate-400" />
-                <Select value={gameFilter} onValueChange={setGameFilter}>
-                  <SelectTrigger className="w-[150px] h-8 text-sm">
-                    <SelectValue placeholder="Filter games" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Games ({games.length})</SelectItem>
-                    <SelectItem value="ranked">Ranked Teams</SelectItem>
-                    <SelectItem value="top25">Top 25 Only</SelectItem>
-                  </SelectContent>
-                </Select>
-                <span className="text-sm text-slate-500 ml-auto">
-                  {filteredGames.length} games
-                </span>
-              </div>
-            </div>
-
-            {/* Games List */}
-            <div className="space-y-6">
-              {(calendarLoading || gamesLoading) ? (
-                <div className="space-y-3">
-                  {[1, 2, 3, 4, 5].map(i => (
-                    <div key={i} className="bg-surface-container rounded-2xl p-4 shadow-sm">
-                      <Skeleton className="h-4 w-1/3 mb-3" />
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Skeleton className="w-8 h-8 rounded-full" />
-                          <Skeleton className="h-4 w-24" />
-                        </div>
-                        <Skeleton className="h-6 w-8" />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Skeleton className="w-8 h-8 rounded-full" />
-                          <Skeleton className="h-4 w-24" />
-                        </div>
-                        <Skeleton className="h-6 w-8" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : filteredGames.length > 0 ? (
-                gamesByDate.map(({ date, games: dateGames }) => (
-                  <div key={date} className="space-y-3">
-                    <h3 className="font-bold text-slate-700 flex items-center gap-2 sticky top-0 bg-slate-100 py-2 z-10">
-                      <CalendarIcon className="w-4 h-4 text-orange-500" />
-                      {date}
-                      <Badge variant="secondary" className="ml-auto">
-                        {dateGames.length} game{dateGames.length !== 1 ? 's' : ''}
-                      </Badge>
-                    </h3>
-                    {dateGames.map((game) => (
-                      <GameCard key={game.id} game={game} onTeamClick={setViewingTeamDetail} />
-                    ))}
+              {/* Counts */}
+              <div className="mt-3 grid grid-cols-3 gap-2 border-t border-outline-variant/60 pt-3 dark:border-white/[0.06]">
+                {[
+                  ['Live', liveGames.length, 'text-red-600'],
+                  ['Upcoming', upcomingGames.length, 'text-on-surface'],
+                  ['Final', completedGames.length, 'text-on-surface-variant'],
+                ].map(([label, n, color]) => (
+                  <div key={label} className="rounded-xl bg-surface-container-high py-1.5 text-center dark:bg-surface">
+                    <p className={cn('gd-score text-2xl leading-none', color)}>{n}</p>
+                    <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">{label}</p>
                   </div>
-                ))
-              ) : (
-                <div className="text-center py-12 bg-surface-container rounded-2xl">
-                  <CalendarIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-slate-600">No games this week</p>
-                  <p className="text-sm text-slate-400 mt-1">
-                    {gameFilter !== 'all' ? 'Try changing the filter' : 'Try selecting a different week'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
+                ))}
+              </div>
+            </section>
 
-          {/* Team Schedule View */}
-          <TabsContent value="team" className="space-y-4">
-            {/* Team Search */}
-            <div className="bg-surface-container rounded-2xl shadow-sm p-4">
-              <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  placeholder="Search for a team..."
+            {/* Game filter */}
+            <div className="gd-chip-row" role="toolbar" aria-label="Filter games">
+              {GAME_FILTERS.map(({ id, label, icon: Icon }) => (
+                <button key={id} type="button" className="gd-chip" aria-pressed={gameFilter === id} onClick={() => setGameFilter(id)}>
+                  {Icon && <Icon className="h-3.5 w-3.5" />}
+                  {label}
+                  {id === 'all' && <span className="font-sans text-xs font-semibold opacity-70">{games.length}</span>}
+                </button>
+              ))}
+            </div>
+
+            {/* AP poll preview: where the top teams play this week */}
+            {showPollPreview && (
+              <section className="gd-card p-3.5" aria-label="AP Top 25 this week">
+                <div className="mb-2 flex items-center justify-between">
+                  <h2 className="flex items-center gap-2 font-display text-lg font-bold uppercase tracking-wide text-on-surface">
+                    <Trophy className="h-4 w-4 text-amber-600 dark:text-brand-highlight" />
+                    AP Top 25 this week
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('rankings')}
+                    className="flex items-center gap-0.5 text-sm font-semibold text-orange-600 dark:text-brand-soft"
+                  >
+                    Full poll <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+                <ol className="space-y-1.5">
+                  {pollPreview.map(({ team, matchup }) => (
+                    <li key={team.rank}>
+                      <button
+                        type="button"
+                        onClick={() => (matchup ? openGame(matchup.game) : setViewingTeamDetail({ id: team.team_id, name: team.team }))}
+                        className="flex w-full items-center gap-3 rounded-xl bg-surface-container-high px-3 py-2 text-left dark:bg-surface"
+                      >
+                        <span className="w-5 text-center font-display text-lg font-bold text-on-surface-variant">{team.rank}</span>
+                        {team.logo ? <img src={team.logo} alt="" className="h-7 w-7 object-contain" /> : <span className="h-7 w-7" />}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-bold text-on-surface">
+                            {team.team} <span className="font-normal text-on-surface-variant">({team.record})</span>
+                          </span>
+                          <span className="flex items-center gap-1 truncate text-xs text-on-surface-variant">
+                            {matchup ? (
+                              <>
+                                {matchup.live && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500 animate-pulse" />}
+                                <span className="truncate">{matchup.text} · {matchup.state}</span>
+                              </>
+                            ) : 'No game this week'}
+                          </span>
+                        </span>
+                        <RankDelta team={team} />
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
+
+            {/* Games by day */}
+            {(calendarLoading || gamesLoading) ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-36 w-full rounded-2xl" />)}
+              </div>
+            ) : filteredGames.length > 0 ? (
+              gamesByDate.map(({ key, date, games: dateGames }) => {
+                const liveCount = dateGames.filter(g => g.status === 'live').length;
+                return (
+                  <section key={key} className="space-y-3">
+                    <h2 className="flex items-center justify-between gap-2 pt-1 font-display text-lg font-bold uppercase tracking-wide text-on-surface">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <CalendarIcon className="h-4 w-4 shrink-0 text-orange-500" />
+                        <span className="truncate">{date}</span>
+                      </span>
+                      {liveCount > 0 ? (
+                        <span className="gd-pill shrink-0 bg-red-600 text-white"><span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />{liveCount} live</span>
+                      ) : key === todayKey ? (
+                        <span className="gd-pill shrink-0 bg-brand text-white">Today</span>
+                      ) : (
+                        <span className="shrink-0 text-xs font-semibold normal-case text-on-surface-variant">
+                          {dateGames.length} game{dateGames.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </h2>
+                    {dateGames.map((game) => (
+                      <ScheduleGameCard key={game.id} game={game} onTeamClick={setViewingTeamDetail} onOpenGame={openGame} />
+                    ))}
+                  </section>
+                );
+              })
+            ) : (
+              <div className="gd-card px-6 py-12 text-center">
+                <CalendarIcon className="mx-auto mb-3 h-10 w-10 text-orange-500" />
+                <p className="font-display text-xl font-bold uppercase text-on-surface">No games this week</p>
+                <p className="mt-1 text-sm text-on-surface-variant">
+                  {gameFilter !== 'all' ? 'Try changing the filter.' : 'Try selecting a different week.'}
+                </p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ---------------- Team schedule view ---------------- */}
+        {activeTab === 'team' && (
+          <>
+            <section className="gd-card p-3.5" aria-label="Choose a team">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />
+                <input
+                  className="gd-input pl-10 pr-10"
+                  placeholder="Search for a team…"
+                  aria-label="Search for a team"
                   value={teamSearch}
                   onChange={(e) => setTeamSearch(e.target.value)}
-                  className="pl-10"
                 />
                 {teamSearch && (
-                  <button 
+                  <button
+                    type="button"
+                    aria-label="Clear search"
                     onClick={() => setTeamSearch('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                    className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-on-surface-variant"
                   >
-                    <X className="w-4 h-4 text-slate-400" />
+                    <X className="h-4 w-4" />
                   </button>
                 )}
               </div>
 
-              {/* Popular Teams */}
-              <div className="space-y-2">
-                <p className="text-xs text-slate-500 font-medium">
-                  {teamSearch ? 'Search Results' : 'Popular Teams'}
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {filteredTeams.slice(0, 10).map((team) => (
-                    <button
-                      key={team.id}
-                      onClick={() => setSelectedTeam(team)}
-                      className={`flex items-center gap-2 p-2 rounded-xl border transition-colors ${
-                        selectedTeam?.id === team.id 
-                          ? 'border-orange-500 bg-orange-50' 
-                          : 'border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold">
-                        {team.abbreviation}
-                      </div>
-                      <span className="text-sm font-medium text-slate-900 truncate">
-                        {team.name.split(' ').slice(-1)[0]}
+              <p className="gd-eyebrow mb-2 mt-3">{teamSearch ? 'Search results' : 'Popular teams'}</p>
+              <div className="grid grid-cols-2 gap-2">
+                {filteredTeams.slice(0, 10).map((team) => (
+                  <button
+                    key={team.id}
+                    type="button"
+                    aria-pressed={selectedTeam?.id === team.id}
+                    onClick={() => setSelectedTeam(team)}
+                    className={cn(
+                      'flex items-center gap-2 rounded-xl border p-2 text-left transition-colors',
+                      selectedTeam?.id === team.id
+                        ? 'border-brand bg-brand/10'
+                        : 'border-outline-variant bg-surface-container-high dark:border-white/[0.08] dark:bg-surface'
+                    )}
+                  >
+                    <img
+                      src={`https://a.espncdn.com/i/teamlogos/ncaa/500/${team.id}.png`}
+                      alt=""
+                      loading="lazy"
+                      className="h-8 w-8 shrink-0 object-contain"
+                    />
+                    <span className="min-w-0">
+                      <span className="line-clamp-2 font-display text-[15px] font-bold uppercase leading-tight text-on-surface">
+                        {team.name}
                       </span>
-                    </button>
-                  ))}
-                </div>
+                      <span className="block truncate text-[11px] text-on-surface-variant">{team.conference}</span>
+                    </span>
+                  </button>
+                ))}
               </div>
-            </div>
+              {!filteredTeams.length && (
+                <p className="py-4 text-center text-sm text-on-surface-variant">No teams match “{teamSearch}”.</p>
+              )}
+            </section>
 
-            {/* Team Schedule */}
-            {selectedTeam && (
-              <div className="space-y-3">
-                <h2 className="font-bold text-slate-900 flex items-center gap-2">
-                  <Star className="w-5 h-5 text-orange-500" />
-                  {selectedTeam.name} Schedule
+            {selectedTeam ? (
+              <section className="space-y-3">
+                <h2 className="flex items-center gap-2 font-display text-lg font-bold uppercase tracking-wide text-on-surface">
+                  <Star className="h-4 w-4 text-orange-500" />
+                  <span className="truncate">{selectedTeam.name}</span>
                 </h2>
 
                 {teamScheduleLoading ? (
                   <div className="space-y-3">
-                    {[1, 2, 3, 4, 5].map(i => (
-                      <Skeleton key={i} className="h-20 w-full rounded-xl" />
-                    ))}
+                    {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}
                   </div>
                 ) : teamSchedule.length > 0 ? (
-                  <div className="space-y-3">
-                    {teamSchedule.map((game, idx) => (
-                      <div key={game.id || idx} className="bg-surface-container rounded-xl shadow-sm p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <Badge variant={game.status === 'final' ? 'secondary' : 'default'} className={
-                              game.status === 'live' ? 'bg-red-500' : 
-                              game.status === 'final' ? '' : 'bg-blue-500'
-                            }>
-                              {game.status === 'live' ? 'LIVE' : 
-                               game.status === 'final' ? 'FINAL' : 
-                               `Week ${game.week}`}
-                            </Badge>
-                            <span className="text-sm text-slate-500">{game.game_date}</span>
-                          </div>
-                          {game.tv_network && (
-                            <span className="text-xs text-slate-500 flex items-center gap-1">
-                              <Tv className="w-3 h-3" />
-                              {game.tv_network}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {game.is_home ? (
-                              <span className="text-xs text-green-600 font-medium">vs</span>
-                            ) : (
-                              <span className="text-xs text-slate-400">@</span>
-                            )}
-                            {game.opponent_logo ? (
-                              <img src={game.opponent_logo} alt="" className="w-8 h-8 object-contain" />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold">
-                                {game.opponent_abbrev || '?'}
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-semibold text-slate-900">
-                                {game.opponent_rank && <span className="text-orange-500">#{game.opponent_rank} </span>}
-                                {game.opponent}
-                              </p>
-                              {game.status !== 'final' && (
-                                <p className="text-xs text-slate-500">{game.time}</p>
-                              )}
-                            </div>
-                          </div>
-                          {game.result && (
-                            <div className={`text-right ${game.result.won ? 'text-green-600' : 'text-red-600'}`}>
-                              <p className="font-bold text-lg">
-                                {game.result.won ? 'W' : 'L'}
-                              </p>
-                              <p className="text-sm">
-                                {game.is_home 
-                                  ? `${game.result.home_score}-${game.result.away_score}`
-                                  : `${game.result.away_score}-${game.result.home_score}`
-                                }
-                              </p>
-                            </div>
-                          )}
-                        </div>
+                  teamSchedule.map((game, idx) => (
+                    <div key={game.id || idx} className={cn('gd-card flex items-center gap-3 p-3.5', game.status === 'live' && 'gd-card-glow')}>
+                      <div className="w-12 shrink-0 text-center">
+                        {game.status === 'live' ? (
+                          <span className="gd-pill bg-red-600 text-white">Live</span>
+                        ) : (
+                          <>
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Wk</p>
+                            <p className="font-display text-xl font-bold leading-none text-on-surface">{game.week}</p>
+                          </>
+                        )}
                       </div>
-                    ))}
-                  </div>
+                      {game.opponent_logo ? (
+                        <img src={game.opponent_logo} alt="" loading="lazy" className="h-9 w-9 shrink-0 object-contain" />
+                      ) : (
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-container-high text-[10px] font-bold text-on-surface-variant">
+                          {game.opponent_abbrev || '?'}
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold text-on-surface">
+                          <span className="text-on-surface-variant">{game.is_home ? 'vs ' : '@ '}</span>
+                          {game.opponent_rank && <span className="font-display font-bold text-orange-600 dark:text-brand-soft">#{game.opponent_rank} </span>}
+                          {game.opponent}
+                        </p>
+                        <p className="flex items-center gap-1.5 truncate text-xs text-on-surface-variant">
+                          <span>{game.game_date}</span>
+                          {game.status !== 'final' && game.time && <span>· {game.time}</span>}
+                          {game.tv_network && (
+                            <span className="flex items-center gap-0.5">· <Tv className="h-3 w-3" />{game.tv_network}</span>
+                          )}
+                        </p>
+                      </div>
+                      {game.result && (
+                        <div className="shrink-0 text-right">
+                          <p className={cn('font-display text-xl font-bold leading-none', game.result.won ? 'text-emerald-600 dark:text-brand-win' : 'text-red-600')}>
+                            {game.result.won ? 'W' : 'L'}
+                          </p>
+                          <p className="gd-score text-base text-on-surface">
+                            {game.result.team_score}-{game.result.opponent_score}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))
                 ) : (
-                  <div className="text-center py-12 bg-surface-container rounded-2xl">
-                    <CalendarIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-600">No schedule available</p>
+                  <div className="gd-card px-6 py-12 text-center">
+                    <CalendarIcon className="mx-auto mb-3 h-10 w-10 text-orange-500" />
+                    <p className="font-display text-xl font-bold uppercase text-on-surface">No schedule available</p>
                   </div>
                 )}
-              </div>
-            )}
-
-            {!selectedTeam && (
-              <div className="text-center py-12 bg-surface-container rounded-2xl">
-                <Star className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-600">Select a team to view their schedule</p>
-              </div>
-            )}
-          </TabsContent>
-          
-          {/* Rankings View */}
-          <TabsContent value="rankings" className="space-y-4">
-            {rankingsLoading ? (
-              <div className="bg-surface-container rounded-2xl shadow-sm p-4 space-y-3">
-                {[1, 2, 3, 4, 5].map(i => (
-                  <div key={i} className="flex items-center gap-4">
-                    <Skeleton className="w-8 h-8 rounded-full" />
-                    <Skeleton className="w-8 h-8 rounded-full" />
-                    <Skeleton className="h-4 w-32" />
-                  </div>
-                ))}
-              </div>
-            ) : rankings.length > 0 ? (
-              <div className="bg-surface-container rounded-2xl shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-slate-100 bg-gradient-to-r from-orange-500 to-red-600 text-white">
-                  <h2 className="font-bold flex items-center gap-2">
-                    <Trophy className="w-5 h-5" />
-                    AP Top 25 / CFP Rankings
-                  </h2>
-                </div>
-                <div className="divide-y divide-slate-100">
-                  {rankings.map((team) => (
-                    <button
-                      key={team.rank}
-                      onClick={() => {
-                        setViewingTeamDetail({ id: team.team_id, name: team.team });
-                      }}
-                      className="w-full p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors"
-                    >
-                      <div className={`w-8 h-8 flex items-center justify-center font-bold rounded-full ${
-                        team.rank <= 4 ? 'bg-orange-500 text-white' : 
-                        team.rank <= 12 ? 'bg-blue-500 text-white' :
-                        'bg-slate-100 text-slate-700'
-                      }`}>
-                        {team.rank}
-                      </div>
-                      <div className="flex-1 flex items-center gap-3">
-                        {team.logo && (
-                          <img src={team.logo} alt="" className="w-8 h-8 object-contain" />
-                        )}
-                        <div className="text-left">
-                          <p className="font-semibold text-slate-900">{team.team}</p>
-                          <p className="text-sm text-slate-500">{team.record}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {team.trend === 'up' && (
-                          <TrendingUp className="w-4 h-4 text-green-500" />
-                        )}
-                        {team.trend === 'down' && (
-                          <TrendingDown className="w-4 h-4 text-red-500" />
-                        )}
-                        {team.previous_rank && team.previous_rank !== team.rank && (
-                          <span className={`text-xs ${
-                            team.trend === 'up' ? 'text-green-500' : 
-                            team.trend === 'down' ? 'text-red-500' : 'text-slate-400'
-                          }`}>
-                            {team.trend === 'up' ? `+${team.previous_rank - team.rank}` : 
-                             team.trend === 'down' ? `${team.previous_rank - team.rank}` : '-'}
-                          </span>
-                        )}
-                        <ChevronRight className="w-4 h-4 text-slate-400" />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              </section>
             ) : (
-              <div className="text-center py-12 bg-surface-container rounded-2xl">
-                <Trophy className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-600">Rankings not available</p>
-                <p className="text-sm text-slate-400 mt-1">Check back during the season</p>
+              <div className="gd-card px-6 py-10 text-center">
+                <Star className="mx-auto mb-3 h-10 w-10 text-orange-500" />
+                <p className="font-display text-xl font-bold uppercase text-on-surface">Pick a team</p>
+                <p className="mt-1 text-sm text-on-surface-variant">Select a team to view its full season schedule.</p>
               </div>
             )}
-          </TabsContent>
-        </Tabs>
-      </div>
-      
+          </>
+        )}
+
+        {/* ---------------- Rankings view ---------------- */}
+        {activeTab === 'rankings' && (
+          rankingsLoading ? (
+            <Skeleton className="h-[480px] w-full rounded-2xl" />
+          ) : rankings.length > 0 ? (
+            <section className="gd-card overflow-hidden" aria-label="AP Top 25">
+              <div className="flex items-center justify-between px-4 pb-2 pt-3.5">
+                <h2 className="flex items-center gap-2 font-display text-xl font-bold uppercase tracking-wide text-on-surface">
+                  <Trophy className="h-5 w-5 text-amber-600 dark:text-brand-highlight" />
+                  AP Top 25
+                </h2>
+                <span className="text-xs font-semibold text-on-surface-variant">Tap a team for details</span>
+              </div>
+              <ol className="border-t border-outline-variant/70 dark:border-white/[0.06]">
+                {rankings.map((team) => (
+                  <li key={team.rank} className="border-b border-outline-variant/50 last:border-b-0 dark:border-white/[0.05]">
+                    <button
+                      type="button"
+                      onClick={() => setViewingTeamDetail({ id: team.team_id, name: team.team })}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-container-high dark:hover:bg-surface"
+                    >
+                      <span
+                        className={cn(
+                          'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-display text-lg font-bold',
+                          team.rank <= 4 ? 'bg-brand text-white' : team.rank <= 12 ? 'bg-brand/15 text-orange-700 dark:text-brand-soft' : 'bg-surface-container-high text-on-surface-variant'
+                        )}
+                      >
+                        {team.rank}
+                      </span>
+                      {team.logo ? <img src={team.logo} alt="" className="h-8 w-8 shrink-0 object-contain" /> : <span className="h-8 w-8 shrink-0" />}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-semibold text-on-surface">{team.team}</span>
+                        <span className="block text-xs text-on-surface-variant tabular-nums">
+                          {team.record}{team.points ? ` · ${team.points} pts` : ''}
+                        </span>
+                      </span>
+                      <RankDelta team={team} />
+                      <ChevronRight className="h-4 w-4 shrink-0 text-on-surface-variant" />
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : (
+            <div className="gd-card px-6 py-12 text-center">
+              <Trophy className="mx-auto mb-3 h-10 w-10 text-orange-500" />
+              <p className="font-display text-xl font-bold uppercase text-on-surface">Rankings not available</p>
+              <p className="mt-1 text-sm text-on-surface-variant">Check back during the season.</p>
+            </div>
+          )
+        )}
+      </main>
+
       <SafetyButton />
 
       {/* Team Detail View */}
@@ -651,174 +644,6 @@ export default function Schedule() {
         isOpen={!!viewingArticle}
         onClose={() => setViewingArticle(null)}
       />
-    </div>
-  );
-}
-
-// Game Card Component
-function GameCard({ game, onTeamClick }) {
-  const isLive = game.status === 'live';
-  const isFinal = game.status === 'final';
-  const homeWinning = game.home_score > game.away_score;
-  const awayWinning = game.away_score > game.home_score;
-  const isTBD = game.home_team === 'TBD' && game.away_team === 'TBD';
-
-  // Special card for TBD games (future CFP matchups)
-  if (isTBD) {
-    return (
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl shadow-sm border border-purple-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 px-4 py-2 text-white">
-          <div className="flex items-center justify-between">
-            <span className="font-semibold">
-              🏆 {game.name?.includes('Championship') ? 'National Championship' : 'CFP Semifinal'}
-            </span>
-            {game.tv_network && (
-              <div className="flex items-center gap-1 text-xs">
-                <Tv className="w-3 h-3" />
-                {game.tv_network}
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="p-4">
-          <p className="font-bold text-slate-800 text-lg mb-2">
-            {game.name || 'College Football Playoff'}
-          </p>
-          <div className="flex items-center gap-3 text-slate-600 mb-2">
-            <span>{game.game_date}</span>
-            <span>•</span>
-            <span>{game.game_time}</span>
-          </div>
-          {game.venue && game.venue !== 'TBD' && (
-            <p className="text-sm text-slate-500 flex items-center gap-1">
-              <MapPin className="w-4 h-4" />
-              {game.venue}
-            </p>
-          )}
-          <div className="mt-3 pt-3 border-t border-purple-200">
-            <p className="text-sm text-purple-600 font-medium">
-              ⏳ Teams determined by earlier playoff rounds
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-surface-container rounded-2xl shadow-sm overflow-hidden">
-      {/* Status Bar */}
-      <div className={`px-4 py-2 flex items-center justify-between text-sm font-semibold ${
-        isLive ? 'bg-red-500 text-white' : 
-        isFinal ? 'bg-ink-600 text-white' : 
-        'bg-blue-500 text-white'
-      }`}>
-        <div className="flex items-center gap-2">
-          {isLive && <span className="w-2 h-2 bg-surface-container rounded-full animate-pulse" />}
-          <span>
-            {isLive ? (game.status_detail || 'LIVE') : 
-             isFinal ? 'FINAL' : 
-             game.game_time}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          {game.tv_network && (
-            <div className="flex items-center gap-1">
-              <Tv className="w-3 h-3" />
-              <span className="text-xs">{game.tv_network}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Bowl/Game Name */}
-      {game.name && !game.name.includes(' at ') && !game.name.includes(' vs ') && (
-        <div className="px-4 py-1 bg-purple-50 border-b border-purple-100">
-          <p className="text-xs text-purple-700 font-semibold">{game.name}</p>
-        </div>
-      )}
-
-      {/* Teams */}
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
-          <button 
-            className="flex items-center gap-3 hover:bg-slate-50 rounded-lg p-1 -m-1 transition-colors"
-            onClick={() => onTeamClick?.({ id: game.away_team_id, name: game.away_team })}
-          >
-            {game.away_logo ? (
-              <img src={game.away_logo} alt="" className="w-10 h-10 object-contain" />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold">
-                {game.away_abbrev || '?'}
-              </div>
-            )}
-            <div className="text-left">
-              <div className={`font-semibold ${awayWinning && isFinal ? 'text-green-600' : ''}`}>
-                {game.away_rank && <span className="text-orange-500 text-sm">#{game.away_rank} </span>}
-                {game.away_team}
-              </div>
-              {game.away_record && (
-                <p className="text-xs text-slate-500">{game.away_record}</p>
-              )}
-            </div>
-          </button>
-          <span className={`text-2xl font-bold min-w-[40px] text-right ${
-            isFinal && awayWinning ? 'text-green-600' : 
-            isFinal ? 'text-slate-400' : 
-            'text-slate-700'
-          }`}>
-            {isLive || isFinal ? game.away_score : '-'}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <button 
-            className="flex items-center gap-3 hover:bg-slate-50 rounded-lg p-1 -m-1 transition-colors"
-            onClick={() => onTeamClick?.({ id: game.home_team_id, name: game.home_team })}
-          >
-            {game.home_logo ? (
-              <img src={game.home_logo} alt="" className="w-10 h-10 object-contain" />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold">
-                {game.home_abbrev || '?'}
-              </div>
-            )}
-            <div className="text-left">
-              <div className={`font-semibold ${homeWinning && isFinal ? 'text-green-600' : ''}`}>
-                {game.home_rank && <span className="text-orange-500 text-sm">#{game.home_rank} </span>}
-                {game.home_team}
-              </div>
-              {game.home_record && (
-                <p className="text-xs text-slate-500">{game.home_record}</p>
-              )}
-            </div>
-          </button>
-          <span className={`text-2xl font-bold min-w-[40px] text-right ${
-            isFinal && homeWinning ? 'text-green-600' : 
-            isFinal ? 'text-slate-400' : 
-            'text-slate-700'
-          }`}>
-            {isLive || isFinal ? game.home_score : '-'}
-          </span>
-        </div>
-
-        {/* Venue & Additional Info */}
-        {(game.venue || game.headline) && (
-          <div className="mt-3 pt-3 border-t border-slate-100 space-y-1">
-            {game.headline && (
-              <p className="text-xs text-orange-600 font-medium">{game.headline}</p>
-            )}
-            {game.venue && (
-              <p className="text-xs text-slate-500 flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                {game.venue}
-              </p>
-            )}
-            {game.odds && !isFinal && (
-              <p className="text-xs text-slate-400">Line: {game.odds}</p>
-            )}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

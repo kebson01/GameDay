@@ -3,11 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { client } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
-import { ArrowLeft, Search, Star, Users, TrendingUp, X, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { Search, Star, X, SlidersHorizontal, GraduationCap } from 'lucide-react';
 import { toast } from 'sonner';
+import AppHeader from '@/components/layout/AppHeader';
+import SafetyButton from '@/components/common/SafetyButton';
+import { Skeleton } from '@/components/common/LoadingSkeleton';
+import DiscoverTeamCard from '@/components/teams-v2/DiscoverTeamCard';
+import { fetchRankings, teamLogoUrl } from '@/lib/sportsApi';
+import { fetchTeamIndex } from '@/lib/teamData';
+
+const SORTS = [
+  { id: 'ranked', label: 'Ranked first' },
+  { id: 'az', label: 'A–Z' },
+  { id: 'pct', label: 'Win %' },
+];
 
 export default function DiscoverTeams() {
   const navigate = useNavigate();
@@ -15,7 +24,7 @@ export default function DiscoverTeams() {
   const [user, setUser] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedConference, setSelectedConference] = useState('all');
-  const [expandedTeam, setExpandedTeam] = useState(null);
+  const [sort, setSort] = useState('ranked');
 
   useEffect(() => {
     client.auth.me().then(setUser).catch(() => {});
@@ -28,85 +37,86 @@ export default function DiscoverTeams() {
     queryFn: () => client.entities.School.list(),
   });
 
-  const { data: standingsData } = useQuery({
-    queryKey: ['standings', selectedConference],
+  const { data: standingsData, isLoading: standingsLoading } = useQuery({
+    queryKey: ['standings', 'all'],
     queryFn: async () => {
-      const response = await client.functions.invoke('fetchStandings', { 
-        conference: selectedConference === 'all' ? 'fbs' : selectedConference 
-      });
+      const response = await client.functions.invoke('fetchStandings', { conference: 'fbs' });
       return response.data;
     },
+    staleTime: 10 * 60 * 1000,
   });
 
-  // Build the team list from ESPN standings (every FBS team), merged with any
-  // locally saved School records (follower counts, colors). Previously only the
-  // local records were shown, which is just the "Demo University" sample.
+  const { data: teamIndex = {} } = useQuery({
+    queryKey: ['teams-v2', 'index'],
+    queryFn: fetchTeamIndex,
+    staleTime: Infinity,
+  });
+
+  const { data: rankings = [] } = useQuery({
+    queryKey: ['teams-v2', 'rankings'],
+    queryFn: fetchRankings,
+    staleTime: 30 * 60 * 1000,
+  });
+  const rankById = useMemo(
+    () => Object.fromEntries(rankings.map(r => [String(r.team_id), r.rank])),
+    [rankings]
+  );
+
+  // Every FBS team from ESPN standings, merged with any locally saved School
+  // records (follower counts, colors) and ESPN team colors.
   const allSchools = useMemo(() => {
     const espnTeams = standingsData?.standings || [];
-    if (espnTeams.length === 0) return schools;
+    if (espnTeams.length === 0) return schools.map(s => ({ ...s, local_id: s.id }));
     const localByName = Object.fromEntries(schools.map(s => [s.name?.toLowerCase(), s]));
     return espnTeams.map(t => {
       const local = localByName[t.team_name?.toLowerCase()];
+      const idx = teamIndex[String(t.team_id)];
       return {
         id: local?.id || `espn-${t.team_id}`,
         espn_id: t.team_id,
         name: t.team_name,
+        abbreviation: t.abbreviation || idx?.abbreviation,
         conference: t.conference,
-        logo: t.logo,
+        logo: t.logo || teamLogoUrl(t.team_id),
+        color: idx?.color || local?.primary_color,
+        alt_color: idx?.alt_color || local?.secondary_color,
         follower_count: local?.follower_count || 0,
-        primary_color: local?.primary_color,
-        secondary_color: local?.secondary_color,
         local_id: local?.id,
+        stats: t,
       };
     });
-  }, [schools, standingsData]);
+  }, [schools, standingsData, teamIndex]);
 
   const conferences = useMemo(() => {
-    const confs = new Set(allSchools.map(s => s.conference).filter(Boolean));
-    return ['all', ...Array.from(confs).sort()];
+    const counts = {};
+    allSchools.forEach(s => { if (s.conference) counts[s.conference] = (counts[s.conference] || 0) + 1; });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   }, [allSchools]);
 
-  const filteredSchools = useMemo(() => {
-    let filtered = allSchools;
-
-    if (selectedConference !== 'all') {
-      filtered = filtered.filter(s => s.conference === selectedConference);
-    }
-
+  const visible = useMemo(() => {
+    let list = allSchools;
+    if (selectedConference !== 'all') list = list.filter(s => s.conference === selectedConference);
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(s => 
-        s.name.toLowerCase().includes(query) ||
-        s.mascot?.toLowerCase().includes(query) ||
-        s.conference?.toLowerCase().includes(query)
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter(s =>
+        s.name?.toLowerCase().includes(q) ||
+        s.abbreviation?.toLowerCase().includes(q) ||
+        s.mascot?.toLowerCase().includes(q) ||
+        s.conference?.toLowerCase().includes(q)
       );
     }
-
-    return filtered.sort((a, b) => a.name.localeCompare(b.name));
-  }, [allSchools, selectedConference, searchQuery]);
-
-  // Merge school data with standings
-  const schoolsWithStats = useMemo(() => {
-    if (!standingsData?.standings) return filteredSchools;
-
-    return filteredSchools.map(school => {
-      const stats = standingsData.standings.find(s => s.team_id && s.team_id === school.espn_id) ||
-        standingsData.standings.find(s => 
-        s.team?.toLowerCase().includes(school.name.toLowerCase()) ||
-        school.name.toLowerCase().includes(s.team?.toLowerCase())
-      );
-      return { ...school, stats };
+    const rank = (s) => rankById[String(s.espn_id)] || 999;
+    const pct = (s) => s.stats?.win_percentage ?? -1;
+    const byName = (a, b) => a.name.localeCompare(b.name);
+    return [...list].sort((a, b) => {
+      if (sort === 'ranked') return rank(a) - rank(b) || pct(b) - pct(a) || byName(a, b);
+      if (sort === 'pct') return pct(b) - pct(a) || (b.stats?.wins || 0) - (a.stats?.wins || 0) || byName(a, b);
+      return byName(a, b);
     });
-  }, [filteredSchools, standingsData]);
+  }, [allSchools, selectedConference, searchQuery, sort, rankById]);
 
   const followMutation = useMutation({
     mutationFn: async (team) => {
-      if (!user) {
-        toast.error('Please log in to follow teams');
-        client.auth.redirectToLogin();
-        return;
-      }
-
       const isFollowing = favoriteTeams.includes(team.name);
       const newFavorites = isFollowing
         ? favoriteTeams.filter(t => t !== team.name)
@@ -122,282 +132,154 @@ export default function DiscoverTeams() {
         await client.entities.School.create({ name: team.name, conference: team.conference, follower_count });
       }
 
-      return { isFollowing, teamName: team.name };
+      return { isFollowing, teamName: team.name, newFavorites };
     },
     onSuccess: (data) => {
+      setUser(prev => ({ ...prev, favorite_teams: data.newFavorites }));
       queryClient.invalidateQueries(['user']);
       queryClient.invalidateQueries(['schools']);
-      client.auth.me().then(setUser);
+      client.auth.me().then(setUser).catch(() => {});
       toast.success(data.isFollowing ? `Unfollowed ${data.teamName}` : `Following ${data.teamName}! 🎉`);
     },
+    onError: () => toast.error('Could not update your teams'),
   });
 
-  const TeamCard = ({ school }) => {
-    const isFollowing = favoriteTeams.includes(school.name);
-    const isExpanded = expandedTeam === school.id;
-    const stats = school.stats;
-
-    const { data: detailedStats, isLoading: detailedStatsLoading } = useQuery({
-      queryKey: ['detailed-stats', school.name],
-      queryFn: async () => {
-        const response = await client.functions.invoke('fetchTeamStats', { team_name: school.name });
-        return response.data.stats;
-      },
-      enabled: isExpanded,
-    });
-
-    return (
-      <div className="bg-surface-container rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4">
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center gap-3 flex-1">
-              <div 
-                className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"
-                style={{ backgroundColor: school.primary_color || '#FF6B35' }}
-              >
-                {school.name.substring(0, 2).toUpperCase()}
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-slate-900">{school.name}</h3>
-                <p className="text-sm text-slate-500">{school.mascot}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge variant="outline" className="text-xs">
-                    {school.conference}
-                  </Badge>
-                  {school.follower_count > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-slate-500">
-                      <Users className="w-3 h-3" />
-                      <span>{school.follower_count}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            <Button
-              size="sm"
-              variant={isFollowing ? "default" : "outline"}
-              className={isFollowing ? "bg-orange-500 hover:bg-orange-600" : ""}
-              onClick={() => followMutation.mutate(school)}
-              disabled={followMutation.isPending}
-            >
-              <Star className={`w-4 h-4 mr-1 ${isFollowing ? 'fill-white' : ''}`} />
-              {isFollowing ? 'Following' : 'Follow'}
-            </Button>
-          </div>
-
-          {stats && (
-            <div className="bg-slate-50 rounded-xl p-3 mb-3">
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-2xl font-bold text-slate-900">{stats.wins || 0}</p>
-                  <p className="text-xs text-slate-600">Wins</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-slate-900">{stats.losses || 0}</p>
-                  <p className="text-xs text-slate-600">Losses</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-orange-600">
-                    {stats.win_percentage ? (stats.win_percentage * 100).toFixed(0) : 0}%
-                  </p>
-                  <p className="text-xs text-slate-600">Win Rate</p>
-                </div>
-              </div>
-              {stats.conference_record && (
-                <p className="text-xs text-slate-500 text-center mt-2">
-                  Conference: {stats.conference_record}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Expanded Stats Section */}
-          {isExpanded && (
-            <div className="mt-3 pt-3 border-t border-slate-200">
-              {detailedStatsLoading ? (
-                <div className="space-y-2">
-                  <div className="h-16 bg-slate-100 rounded animate-pulse" />
-                  <div className="h-16 bg-slate-100 rounded animate-pulse" />
-                </div>
-              ) : detailedStats ? (
-                <div className="space-y-3">
-                  {/* Rankings */}
-                  {detailedStats.rankings && (
-                    <div className="grid grid-cols-2 gap-2">
-                      {detailedStats.rankings.national_rank && detailedStats.rankings.national_rank <= 25 && (
-                        <div className="bg-orange-50 rounded-lg p-2 text-center">
-                          <p className="text-xs text-orange-600">National</p>
-                          <p className="text-lg font-bold text-orange-900">#{detailedStats.rankings.national_rank}</p>
-                        </div>
-                      )}
-                      <div className="bg-blue-50 rounded-lg p-2 text-center">
-                        <p className="text-xs text-blue-600">Off. Rank</p>
-                        <p className="text-lg font-bold text-blue-900">#{detailedStats.rankings.offense_rank}</p>
-                      </div>
-                      <div className="bg-red-50 rounded-lg p-2 text-center">
-                        <p className="text-xs text-red-600">Def. Rank</p>
-                        <p className="text-lg font-bold text-red-900">#{detailedStats.rankings.defense_rank}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Current Season Snapshot */}
-                  {detailedStats.current_season && (
-                    <div className="bg-slate-50 rounded-lg p-3">
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <p className="text-xs text-slate-600">PPG</p>
-                          <p className="font-bold text-green-600">{detailedStats.current_season.points_per_game?.toFixed(1)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-600">Allowed</p>
-                          <p className="font-bold text-red-600">{detailedStats.current_season.points_allowed_per_game?.toFixed(1)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Trends */}
-                  {detailedStats.trends && (
-                    <div className="text-sm text-slate-700">
-                      <p className="font-semibold mb-1">Current Form:</p>
-                      <p>{detailedStats.trends.current_streak}</p>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-            </div>
-          )}
-
-          <div className="flex gap-2 mt-3">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1"
-              onClick={() => setExpandedTeam(isExpanded ? null : school.id)}
-            >
-              {isExpanded ? <ChevronUp className="w-4 h-4 mr-1" /> : <ChevronDown className="w-4 h-4 mr-1" />}
-              {isExpanded ? 'Less' : 'More Stats'}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1"
-              onClick={() => navigate(createPageUrl('TeamPage') + `?team=${encodeURIComponent(school.name)}`)}
-            >
-              <ExternalLink className="w-4 h-4 mr-1" />
-              Full Profile
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
+  const toggleFollow = (team) => {
+    if (!user) {
+      toast.error('Please log in to follow teams');
+      client.auth.redirectToLogin();
+      return;
+    }
+    followMutation.mutate(team);
   };
+
+  const openTeam = (team) => navigate(createPageUrl('TeamPage') + `?team=${encodeURIComponent(team.name)}`);
+  const clearFilters = () => { setSearchQuery(''); setSelectedConference('all'); };
 
   return (
     <div className="gd-page">
-      {/* Header */}
-      <div className="gd-header px-4 pt-12 pb-6 sticky top-0 z-10">
-        <div className="flex items-center gap-3 mb-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/20"
-            onClick={() => navigate(createPageUrl('Home'))}
+      <AppHeader
+        eyebrow="Find your program"
+        title="Discover Teams"
+        back
+        actions={user && favoriteTeams.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => navigate(createPageUrl('MyTeams'))}
+            aria-label={`My teams (${favoriteTeams.length})`}
+            className="flex h-10 items-center gap-1 rounded-full px-2 text-sm font-bold text-orange-600 dark:text-brand-soft"
           >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Discover Teams</h1>
-            <p className="text-white/90 text-sm">Follow your favorite teams</p>
-          </div>
-        </div>
-
-        {/* Search */}
+            <Star className="h-4 w-4 fill-current" />
+            {favoriteTeams.length}
+          </button>
+        ) : null}
+      >
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input
-            type="text"
-            placeholder="Search teams..."
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />
+          <input
+            type="search"
+            placeholder="Search by school, mascot or conference…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-white/20 border-white/30 text-white placeholder:text-white/70"
+            className="gd-input pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden"
+            aria-label="Search teams"
           />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2"
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface"
             >
-              <X className="w-4 h-4 text-white/70 hover:text-white" />
+              <X className="h-4 w-4" />
             </button>
           )}
         </div>
-      </div>
+      </AppHeader>
 
-      {/* Conference Filter */}
-      <div className="px-4 py-3 bg-surface-container border-b border-gray-200 overflow-x-auto sticky top-[160px] z-10">
-        <div className="flex gap-2">
-          {conferences.map(conf => (
-            <Badge
-              key={conf}
-              variant={selectedConference === conf ? "default" : "outline"}
-              className={`cursor-pointer capitalize shrink-0 ${
-                selectedConference === conf 
-                  ? 'bg-orange-500 hover:bg-orange-600'
-                  : 'hover:bg-slate-100'
-              }`}
-              onClick={() => setSelectedConference(conf)}
-            >
-              {conf === 'all' ? 'All Conferences' : conf}
-            </Badge>
+      <main className="space-y-4 px-4 pt-4">
+        {/* Conference chips */}
+        <div className="gd-chip-row" role="toolbar" aria-label="Filter by conference">
+          <button className="gd-chip" aria-pressed={selectedConference === 'all'} onClick={() => setSelectedConference('all')}>
+            All ({allSchools.length})
+          </button>
+          {conferences.map(([conf, n]) => (
+            <button key={conf} className="gd-chip" aria-pressed={selectedConference === conf} onClick={() => setSelectedConference(conf)}>
+              {conf} ({n})
+            </button>
           ))}
         </div>
-      </div>
 
-      {/* Teams Grid */}
-      <div className="px-4 py-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-slate-900">
-            {filteredSchools.length} {filteredSchools.length === 1 ? 'Team' : 'Teams'}
-          </h2>
-          {user && favoriteTeams.length > 0 && (
-            <button 
-              onClick={() => navigate(createPageUrl('MyTeams'))}
-              className="text-sm text-orange-500 font-semibold flex items-center gap-1"
-            >
-              <Star className="w-4 h-4 fill-orange-500" />
-              My Teams ({favoriteTeams.length})
-            </button>
-          )}
+        {/* Sort */}
+        <div className="flex items-center gap-3">
+          <span className="flex shrink-0 items-center gap-1.5 font-display text-sm font-bold uppercase tracking-wide text-on-surface-variant">
+            <SlidersHorizontal className="h-4 w-4 text-orange-500" />Sort
+          </span>
+          <div className="gd-segment flex-1 grid-cols-3" role="tablist" aria-label="Sort teams">
+            {SORTS.map(({ id, label }) => (
+              <button key={id} type="button" role="tab" aria-selected={sort === id} onClick={() => setSort(id)} className="!py-1.5 !text-xs">
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {schoolsWithStats.length > 0 ? (
-          <div className="grid gap-3">
-            {schoolsWithStats.map(school => (
-              <TeamCard key={school.id} school={school} />
+        <p className="text-xs font-semibold text-on-surface-variant">
+          {visible.length} {visible.length === 1 ? 'team' : 'teams'}
+          {selectedConference !== 'all' && ` in ${selectedConference}`}
+        </p>
+
+        {standingsLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-36 w-full rounded-2xl" />)}
+          </div>
+        ) : visible.length > 0 ? (
+          <div className="space-y-3">
+            {visible.map(team => (
+              <DiscoverTeamCard
+                key={team.id}
+                team={team}
+                rank={rankById[String(team.espn_id)]}
+                isFollowing={favoriteTeams.includes(team.name)}
+                busy={followMutation.isPending && followMutation.variables?.name === team.name}
+                onToggleFollow={() => toggleFollow(team)}
+                onOpen={() => openTeam(team)}
+              />
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 bg-surface-container rounded-2xl">
-            <Search className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-600 mb-2">No teams found</p>
-            <p className="text-sm text-slate-500">Try adjusting your search or filters</p>
+          <div className="gd-card px-6 py-12 text-center">
+            <Search className="mx-auto mb-3 h-10 w-10 text-on-surface-variant" />
+            <p className="font-display text-xl font-bold uppercase text-on-surface">No teams found</p>
+            <p className="mt-1 text-sm text-on-surface-variant">Try adjusting your search or filters.</p>
             {(searchQuery || selectedConference !== 'all') && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4"
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedConference('all');
-                }}
-              >
-                Clear Filters
-              </Button>
+              <button type="button" className="mt-4 h-10 rounded-xl bg-surface-container-high px-4 font-semibold text-on-surface" onClick={clearFilters}>
+                Clear filters
+              </button>
             )}
           </div>
         )}
-      </div>
+
+        {/* Custom team (FCS, D-II...) via My Teams' add dialog */}
+        <div className="gd-card flex items-start gap-3 p-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-brand-highlight">
+            <GraduationCap className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="font-display text-lg font-bold uppercase text-on-surface">Can&apos;t find your school?</p>
+            <p className="mt-0.5 text-sm text-on-surface-variant">This list covers FBS programs. Add any other school by name from My Teams.</p>
+            <button
+              type="button"
+              onClick={() => navigate(createPageUrl('MyTeams') + '?add=1')}
+              className="mt-3 h-10 rounded-xl bg-surface-container-high px-4 font-display text-sm font-bold uppercase tracking-wide text-on-surface"
+            >
+              Add a team by name
+            </button>
+          </div>
+        </div>
+      </main>
+
+      <SafetyButton />
     </div>
   );
 }

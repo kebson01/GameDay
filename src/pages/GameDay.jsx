@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { TailgateIcon } from '@/components/icons/GameDayIcons';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Search, RefreshCw, Calendar, Heart, Star, X, PartyPopper, MapPin, ChevronRight } from 'lucide-react';
@@ -272,7 +273,7 @@ export default function GameDay() {
         {tailgates.length > 0 && (
           <section className="space-y-3 pt-2">
             <h2 className="flex items-center justify-between font-display text-lg font-bold uppercase tracking-wide text-on-surface">
-              <span className="flex items-center gap-2"><PartyPopper className="h-5 w-5 text-orange-500" />Tailgate Radar</span>
+              <span className="flex items-center gap-2"><TailgateIcon className="h-5 w-5 text-on-surface" />Tailgate Radar</span>
               <button className="text-sm font-semibold normal-case text-orange-600 dark:text-brand-soft" onClick={() => navigate(createPageUrl('TailgateDirectory'))}>
                 See all
               </button>
