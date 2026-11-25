@@ -29,6 +29,10 @@ import {
 import VideoHighlights from '@/components/video/VideoHighlights';
 import VideoStorySheet from '@/components/video/VideoStorySheet';
 import TeamsRow from '@/components/home/TeamsRow';
+import GreetingCard from '@/components/home/GreetingCard';
+import Essentials from '@/components/home/Essentials';
+import AppHeader from '@/components/layout/AppHeader';
+import FeaturedGame from '@/components/scores/FeaturedGame';
 import ScoresCarousel from '@/components/home/ScoresCarousel';
 import StoryCard from '@/components/home/StoryCard';
 import TopHeadlines from '@/components/home/TopHeadlines';
@@ -159,43 +163,63 @@ export default function Home() {
   const featuredDate = tailgateDate(tailgates[0]);
   const featuredLabel = featuredDate && isToday(featuredDate) ? 'Today' : 'Next Up';
   
-  const quickActions = [
-    { icon: Users, label: 'Find Friends', color: 'orange', onClick: () => requireAuth('friend tracking', () => navigate(createPageUrl('FindFriends'))) },
-    { icon: Car, label: 'Find My Car', color: 'blue', onClick: () => requireAuth('car location', () => navigate(createPageUrl('CarLocator'))) },
-    { icon: PartyPopper, label: 'Tailgates', color: 'green', onClick: () => navigate(createPageUrl('TailgateDirectory')) },
-    { icon: MapPin, label: 'Campus Map', color: 'purple', onClick: () => navigate(createPageUrl('CampusMap')) },
-    { icon: Star, label: 'Discover', color: 'yellow', onClick: () => navigate(createPageUrl('DiscoverTeams')) },
-  ];
-  
+  // Featured game: your team's live/next game, else the best-ranked one
+  const isFavGame = (g) => favoriteTeams.some(t => [g.home_team, g.away_team].some(n => n?.toLowerCase() === t.toLowerCase()));
+  const rankScore = (g) => Math.min(g.home_rank || 99, g.away_rank || 99) + (g.home_rank && g.away_rank ? -10 : 0);
+  const featuredGame = (() => {
+    const pool = selectedTeamId ? scoreGames : allGames;
+    const fav = pool.filter(isFavGame);
+    // Your team: its live game, else its next kickoff
+    const mine = fav.find(g => g.status === 'live')
+      || fav.filter(g => g.status === 'upcoming').sort((a, b) => new Date(a.full_date) - new Date(b.full_date))[0];
+    if (mine) return mine;
+    // Otherwise the biggest matchup: best-ranked live game, else best-ranked upcoming (earliest breaks ties)
+    const byRank = (a, b) => rankScore(a) - rankScore(b) || new Date(a.full_date) - new Date(b.full_date);
+    return pool.filter(g => g.status === 'live').sort(byRank)[0]
+      || pool.filter(g => g.status === 'upcoming').sort(byRank)[0]
+      || null;
+  })();
+  const featuredIsMine = featuredGame && isFavGame(featuredGame);
+
+  // Essentials status lines (real data)
+  const { data: lastCar } = useQuery({
+    queryKey: ['home-last-car', user?.email],
+    queryFn: async () => (await client.entities.CarLocation.filter({ user_email: user.email }, '-created_date', 1))[0] || null,
+    enabled: !!user,
+  });
+  const openEssential = (id) => {
+    if (id === 'car') return requireAuth('car location', () => navigate(createPageUrl('CarLocator')));
+    if (id === 'friends') return requireAuth('friend tracking', () => navigate(createPageUrl('FindFriends')));
+    if (id === 'tailgates') return navigate(createPageUrl('TailgateDirectory'));
+    return navigate(createPageUrl('CampusMap'));
+  };
+
   return (
     <div className="gd-page !pb-24">
-      {/* Header */}
-      <div className="gd-header px-4 pt-12 pb-3 sticky top-0 z-20 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🏈</span>
-            <h1 className="text-2xl font-bold">GameDay</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <button className="relative p-2 hover:bg-white/20 rounded-full transition-colors" aria-label="Notifications">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-600 rounded-full" />
-            </button>
-            <button 
-              className="p-2 hover:bg-white/20 rounded-full transition-colors"
-              onClick={() => navigate(createPageUrl('Settings'))}
-              aria-label="Settings"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+      {/* Header with followed-teams row */}
+      <AppHeader eyebrow="Saturday Live" title="GameDay">
         <TeamsRow
           teams={followedTeams}
           selectedId={selectedTeamId}
           onSelect={setSelectedTeamId}
           onEdit={() => navigate(createPageUrl('DiscoverTeams'))}
         />
+      </AppHeader>
+
+      {/* Greeting + weather, and the featured game */}
+      <div className="space-y-4 px-4 pt-4">
+        <GreetingCard user={user} nextGame={featuredIsMine ? featuredGame : null} />
+        {featuredGame && (
+          <section aria-labelledby="featured-game">
+            <h2 id="featured-game" className="mb-3 font-display text-lg font-bold uppercase tracking-wide text-on-surface">
+              {featuredIsMine ? 'Your next game' : featuredGame.status === 'live' ? 'Game of the moment' : 'Game of the week'}
+            </h2>
+            <FeaturedGame
+              game={featuredGame}
+              onOpen={(g) => navigate(createPageUrl('LiveGame') + `?gameId=${g.id}&home=${encodeURIComponent(g.home_team)}&away=${encodeURIComponent(g.away_team)}`)}
+            />
+          </section>
+        )}
       </div>
 
       {/* Instagram-style Stories - Groups */}
@@ -256,20 +280,14 @@ export default function Home() {
         )}
       </section>
 
-      {/* Quick Actions */}
+      {/* Game day essentials */}
       <div className="px-4 py-4">
-        <div className="grid grid-cols-5 gap-2">
-          {quickActions.map((action, idx) => (
-            <button
-              key={idx}
-              onClick={action.onClick}
-              className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 active:scale-95 transition-transform"
-            >
-              <action.icon className="w-6 h-6" />
-              <span className="text-[10px] font-medium text-center leading-tight">{action.label}</span>
-            </button>
-          ))}
-        </div>
+        <Essentials
+          carLabel={lastCar ? (lastCar.lot_name || lastCar.notes || 'Spot saved') : null}
+          crewLabel={user ? (groups.length ? `${groups.length} ${groups.length === 1 ? 'group' : 'groups'} · share your location` : 'Create or join a group') : null}
+          tailgateLabel={tailgates.length ? `${tailgates.length}${tailgates.length >= 4 ? '+' : ''} upcoming near game day` : null}
+          onOpen={openEssential}
+        />
       </div>
 
       {/* Main Content */}

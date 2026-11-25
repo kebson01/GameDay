@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Shield, MapPin, Users, Database, Lock, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createPageUrl } from '@/utils';
+import AppHeader from '@/components/layout/AppHeader';
 
 export default function PrivacyPolicy() {
   const navigate = useNavigate();
@@ -11,26 +12,10 @@ export default function PrivacyPolicy() {
   return (
     <div className="gd-page !pb-0">
       {/* Header */}
-      <div className="gd-header px-4 pt-12 pb-6">
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/20"
-            onClick={() => navigate(-1)}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold">Privacy Policy</h1>
-            <p className="text-white/70 text-sm">Last updated: {lastUpdated}</p>
-          </div>
-        </div>
-      </div>
+      <AppHeader eyebrow="GameDay" title="Privacy Policy" subtitle={`Last updated: ${lastUpdated}`} back showProfile={false} />
 
-      {/* Content */}
       <div className="px-4 py-6 max-w-3xl mx-auto">
-        <div className="prose prose-slate max-w-none">
+        <div className="prose prose-slate max-w-none dark:prose-invert">
           
           {/* Introduction */}
           <section className="mb-8">
