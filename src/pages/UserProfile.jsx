@@ -4,18 +4,25 @@ import { auth } from '@/lib/auth';
 import { client } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
-import { ArrowLeft, Star, TrendingUp, Target, Award, MessageCircle, ThumbsUp, Settings, LogIn } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Star, Target, Award, MessageCircle, ThumbsUp, Settings, UserRound, ChevronRight, Compass } from 'lucide-react';
+import AppHeader from '@/components/layout/AppHeader';
 import AuthModal from '@/components/auth/AuthModal';
+import { Skeleton } from '@/components/common/LoadingSkeleton';
+import { SignInCard, EmptyCard } from '@/components/crew-v2/ui';
+
+const TABS = [
+  { id: 'teams', label: 'Teams', icon: Star },
+  { id: 'predictions', label: 'Picks', icon: Target },
+  { id: 'activity', label: 'Activity', icon: MessageCircle },
+];
 
 export default function UserProfile() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  
+  const [tab, setTab] = useState('teams');
+
   const urlParams = new URLSearchParams(window.location.search);
   const profileEmail = urlParams.get('email');
 
@@ -30,7 +37,7 @@ export default function UserProfile() {
   const displayEmail = isOwnProfile ? user?.email : profileEmail;
 
   // Fetch user's followed teams
-  const favoriteTeams = user?.favorite_teams || [];
+  const favoriteTeams = isOwnProfile ? user?.favorite_teams || [] : [];
 
   // Fetch user's predictions
   const { data: predictions = [] } = useQuery({
@@ -52,248 +59,196 @@ export default function UserProfile() {
     correct: predictions.filter(p => p.was_correct).length,
     pending: predictions.filter(p => p.was_correct === undefined || p.was_correct === null).length,
   };
+  const decided = predictionStats.total - predictionStats.pending;
+  const accuracy = decided > 0 ? Math.round((predictionStats.correct / decided) * 100) : 0;
 
-  const accuracy = predictionStats.total > 0 
-    ? Math.round((predictionStats.correct / (predictionStats.total - predictionStats.pending)) * 100) 
-    : 0;
-
-  // Group predictions by confidence
-  const predictionsByConfidence = {
-    high: predictions.filter(p => p.confidence === 'high'),
-    medium: predictions.filter(p => p.confidence === 'medium'),
-    low: predictions.filter(p => p.confidence === 'low'),
-  };
-
-  const handleAuthSuccess = (loggedInUser) => {
-    setUser(loggedInUser);
-  };
+  const header = (
+    <AppHeader
+      eyebrow="Fan Profile"
+      title={loading ? 'Profile' : user ? (isOwnProfile ? 'My Profile' : 'Fan Profile') : 'Profile'}
+      back
+      showProfile={false}
+      actions={user && isOwnProfile && (
+        <button
+          type="button"
+          aria-label="Settings"
+          onClick={() => navigate(createPageUrl('Settings'))}
+          className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface"
+        >
+          <Settings className="h-5 w-5" />
+        </button>
+      )}
+    />
+  );
 
   if (loading) {
     return (
-      <div className="gd-page flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
+      <div className="gd-page">
+        {header}
+        <main className="space-y-4 px-4 pt-4">
+          <Skeleton className="h-56 w-full rounded-2xl" />
+        </main>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="gd-page flex items-center justify-center p-4">
-        <div className="bg-surface-container rounded-3xl shadow-lg p-8 text-center max-w-sm w-full">
-          <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
-            <LogIn className="w-10 h-10 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">Sign In Required</h1>
-          <p className="text-slate-600 mb-6">Sign in to view your profile and track your predictions.</p>
-          <Button 
-            onClick={() => setShowAuthModal(true)}
-            className="w-full h-12 gd-btn-primary"
+      <div className="gd-page">
+        {header}
+        <main className="space-y-4 px-4 pt-4">
+          <SignInCard
+            icon={UserRound}
+            text="Sign in to view your profile, followed teams and game picks."
+            onSignIn={() => setShowAuthModal(true)}
           >
-            Sign In
-          </Button>
-          <Button 
-            variant="ghost"
-            onClick={() => navigate(createPageUrl('Home'))}
-            className="w-full mt-2"
-          >
-            Go Back
-          </Button>
-        </div>
-        
-        <AuthModal 
-          open={showAuthModal} 
-          onOpenChange={setShowAuthModal}
-          onSuccess={handleAuthSuccess}
-          feature="your profile"
-        />
+            <button
+              type="button"
+              onClick={() => navigate(createPageUrl('Home'))}
+              className="mt-2 h-11 w-full rounded-xl text-sm font-semibold text-on-surface-variant hover:text-on-surface"
+            >
+              Go back
+            </button>
+          </SignInCard>
+        </main>
+        <AuthModal open={showAuthModal} onOpenChange={setShowAuthModal} onSuccess={setUser} feature="your profile" />
       </div>
     );
   }
 
+  const name = isOwnProfile ? user.full_name || user.email?.split('@')[0] : displayEmail?.split('@')[0];
+  const stats = [
+    { label: 'Teams', value: favoriteTeams.length, hidden: !isOwnProfile },
+    { label: 'Posts', value: posts.length },
+    { label: 'Picks', value: predictionStats.total },
+  ].filter(s => !s.hidden);
+
   return (
     <div className="gd-page">
-      {/* Header */}
-      <div className="gd-header px-4 pt-12 pb-8">
-        <div className="flex items-center justify-between mb-6">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/20"
-            onClick={() => navigate(-1)}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          {isOwnProfile && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-white/20"
-              onClick={() => navigate(createPageUrl('Settings'))}
-            >
-              <Settings className="w-5 h-5" />
-            </Button>
-          )}
-        </div>
+      {header}
 
-        {/* Profile Info */}
-        <div className="text-center">
-          <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-4xl overflow-hidden">
-            {user.picture ? (
+      <main className="space-y-4 px-4 pt-4">
+        {/* Identity */}
+        <section className="gd-card gd-card-glow relative overflow-hidden p-5 text-center">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-brand/20 to-transparent" />
+          <div className="relative mx-auto flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-brand font-display text-4xl font-bold text-white ring-4 ring-brand/30">
+            {isOwnProfile && user.picture ? (
               <img src={user.picture} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
             ) : (
-              user.full_name?.charAt(0) || '👤'
+              (name?.charAt(0) || '?').toUpperCase()
             )}
           </div>
-          <h1 className="text-2xl font-bold mb-1">{isOwnProfile ? user.full_name : displayEmail}</h1>
-          <p className="text-white/80 text-sm mb-4">{user.email}</p>
+          <h2 className="relative mt-3 break-words font-display text-3xl font-bold uppercase leading-tight text-on-surface">{name}</h2>
+          <p className="relative truncate text-sm text-on-surface-variant">{displayEmail}</p>
 
-          {/* Stats Row */}
-          <div className="flex items-center justify-center gap-6">
-            <div className="text-center">
-              <p className="text-2xl font-bold">{favoriteTeams.length}</p>
-              <p className="text-white/80 text-xs">Teams</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold">{posts.length}</p>
-              <p className="text-white/80 text-xs">Posts</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold">{predictionStats.total}</p>
-              <p className="text-white/80 text-xs">Predictions</p>
-            </div>
+          <div className={`relative mt-4 grid gap-2 ${stats.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            {stats.map(s => (
+              <div key={s.label} className="rounded-xl bg-surface-container-high py-2.5 dark:bg-surface">
+                <p className="gd-score text-3xl leading-none text-on-surface">{s.value}</p>
+                <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">{s.label}</p>
+              </div>
+            ))}
           </div>
+        </section>
+
+        {/* Tabs */}
+        <div className="gd-segment grid-cols-3" role="tablist" aria-label="Profile sections">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
+              <Icon className="h-4 w-4" />{label}
+            </button>
+          ))}
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="px-4 py-4">
-        <Tabs defaultValue="teams" className="w-full">
-          <TabsList className="w-full grid grid-cols-3 mb-4">
-            <TabsTrigger value="teams">
-              <Star className="w-4 h-4 mr-1" />
-              Teams
-            </TabsTrigger>
-            <TabsTrigger value="predictions">
-              <Target className="w-4 h-4 mr-1" />
-              Predictions
-            </TabsTrigger>
-            <TabsTrigger value="activity">
-              <MessageCircle className="w-4 h-4 mr-1" />
-              Activity
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Followed Teams */}
-          <TabsContent value="teams">
-            <div className="space-y-3">
-              {favoriteTeams.length > 0 ? (
-                favoriteTeams.map((team, idx) => (
-                  <div key={idx} className="bg-surface-container rounded-2xl p-4 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Star className="w-5 h-5 text-orange-500 fill-orange-500" />
-                        <span className="font-semibold text-slate-900">{team}</span>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate(createPageUrl('TeamPage') + `?team=${encodeURIComponent(team)}`)}
-                      >
-                        View
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-12 bg-surface-container rounded-2xl">
-                  <Star className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-slate-500">No teams followed yet</p>
-                  <Button 
-                    variant="link" 
-                    className="text-orange-500"
+        {/* Followed Teams */}
+        {tab === 'teams' && (
+          <div className="space-y-2" role="tabpanel">
+            {favoriteTeams.length > 0 ? (
+              favoriteTeams.map((team) => (
+                <button
+                  key={team}
+                  type="button"
+                  onClick={() => navigate(createPageUrl('TeamPage') + `?team=${encodeURIComponent(team)}`)}
+                  className="gd-card flex w-full items-center gap-3 p-3 text-left"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-orange-600 dark:text-brand-soft">
+                    <Star className="h-5 w-5 fill-current" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-display text-lg font-bold uppercase text-on-surface">{team}</span>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-on-surface-variant" />
+                </button>
+              ))
+            ) : (
+              <EmptyCard icon={Star} title="No teams yet" text={isOwnProfile ? 'Follow teams to get their scores and news first.' : 'This fan’s teams are private.'}>
+                {isOwnProfile && (
+                  <button
+                    type="button"
                     onClick={() => navigate(createPageUrl('DiscoverTeams'))}
+                    className="gd-btn-primary mt-4 inline-flex h-11 items-center gap-1.5 rounded-xl px-4 text-sm font-bold"
                   >
-                    Discover Teams
-                  </Button>
-                </div>
-              )}
-            </div>
-          </TabsContent>
+                    <Compass className="h-4 w-4" />Discover teams
+                  </button>
+                )}
+              </EmptyCard>
+            )}
+          </div>
+        )}
 
-          {/* Predictions */}
-          <TabsContent value="predictions">
-            <div className="space-y-4">
-              {/* Prediction Stats */}
-              <div className="bg-surface-container rounded-2xl p-4 shadow-sm">
-                <div className="flex items-center gap-2 mb-4">
-                  <Award className="w-5 h-5 text-orange-500" />
-                  <h3 className="font-bold text-slate-900">Prediction Stats</h3>
+        {/* Predictions */}
+        {tab === 'predictions' && (
+          <div className="space-y-3" role="tabpanel">
+            <section className="gd-card p-4">
+              <h3 className="flex items-center gap-2 font-display text-lg font-bold uppercase text-on-surface">
+                <Award className="h-5 w-5 text-amber-600 dark:text-brand-highlight" />Pick record
+              </h3>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-xl bg-surface-container-high py-2.5 dark:bg-surface">
+                  <p className="gd-score text-3xl leading-none text-emerald-600 dark:text-brand-win">{predictionStats.correct}</p>
+                  <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Correct</p>
                 </div>
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="text-center">
-                    <p className="text-3xl font-bold text-green-600">{predictionStats.correct}</p>
-                    <p className="text-xs text-slate-600">Correct</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-3xl font-bold text-orange-600">{predictionStats.pending}</p>
-                    <p className="text-xs text-slate-600">Pending</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-3xl font-bold text-slate-900">{accuracy || 0}%</p>
-                    <p className="text-xs text-slate-600">Accuracy</p>
-                  </div>
+                <div className="rounded-xl bg-surface-container-high py-2.5 dark:bg-surface">
+                  <p className="gd-score text-3xl leading-none text-orange-600 dark:text-brand-soft">{predictionStats.pending}</p>
+                  <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Pending</p>
+                </div>
+                <div className="rounded-xl bg-surface-container-high py-2.5 dark:bg-surface">
+                  <p className="gd-score text-3xl leading-none text-on-surface">{accuracy}%</p>
+                  <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Accuracy</p>
                 </div>
               </div>
+            </section>
+            {predictions.length === 0 && <EmptyCard icon={Target} title="No picks yet" text="Make a prediction on a game to start your record." />}
+          </div>
+        )}
 
-              {predictions.length === 0 && (
-                <div className="text-center py-12 bg-surface-container rounded-2xl">
-                  <Target className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-slate-500">No predictions yet</p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          {/* Activity Feed */}
-          <TabsContent value="activity">
-            <div className="space-y-3">
-              {posts.length > 0 ? (
-                posts.map((post) => (
-                  <div 
-                    key={post.id} 
-                    className="bg-surface-container rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => navigate(createPageUrl('TeamPage') + `?team=${encodeURIComponent(post.team_name)}`)}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant="outline" className="capitalize">{post.type}</Badge>
-                      <span className="text-xs text-slate-500">
-                        {new Date(post.created_date).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <p className="text-sm font-semibold text-slate-900 mb-1">{post.team_name}</p>
-                    <p className="text-sm text-slate-700 mb-3 line-clamp-2">{post.content}</p>
-                    <div className="flex items-center gap-4 text-slate-500 text-xs">
-                      <div className="flex items-center gap-1">
-                        <ThumbsUp className="w-3 h-3" />
-                        {post.likes?.length || 0}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <MessageCircle className="w-3 h-3" />
-                        {post.comment_count || 0}
-                      </div>
-                    </div>
+        {/* Activity Feed */}
+        {tab === 'activity' && (
+          <div className="space-y-3" role="tabpanel">
+            {posts.length > 0 ? (
+              posts.map((post) => (
+                <button
+                  key={post.id}
+                  type="button"
+                  className="gd-card block w-full p-4 text-left"
+                  onClick={() => navigate(createPageUrl('TeamPage') + `?team=${encodeURIComponent(post.team_name)}`)}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="gd-pill bg-brand/15 text-orange-700 dark:text-brand-soft">{post.type}</span>
+                    <span className="text-xs text-on-surface-variant">{new Date(post.created_date).toLocaleDateString()}</span>
                   </div>
-                ))
-              ) : (
-                <div className="text-center py-12 bg-surface-container rounded-2xl">
-                  <MessageCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-slate-500">No activity yet</p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
+                  <p className="mt-2 font-display text-base font-bold uppercase text-on-surface">{post.team_name}</p>
+                  <p className="line-clamp-2 text-sm text-on-surface-variant">{post.content}</p>
+                  <div className="mt-2 flex items-center gap-4 text-xs text-on-surface-variant">
+                    <span className="flex items-center gap-1"><ThumbsUp className="h-3.5 w-3.5" />{post.likes?.length ?? post.like_count ?? 0}</span>
+                    <span className="flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" />{post.comment_count || 0}</span>
+                  </div>
+                </button>
+              ))
+            ) : (
+              <EmptyCard icon={MessageCircle} title="No activity yet" text="Posts in team chats will show up here." />
+            )}
+          </div>
+        )}
+      </main>
     </div>
   );
 }

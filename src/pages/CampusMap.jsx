@@ -1,18 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
 import { client } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
-import { createPageUrl } from '@/utils';
-import { 
-  ArrowLeft, MapPin, Search, Filter, Navigation,
-  Droplets, Utensils, Cross, Banknote, DoorOpen, Bath, X
+import {
+  Search, Navigation, Droplets, Utensils, Cross, Banknote, DoorOpen, Bath, X, Map as MapIcon, Car, PartyPopper, MapPin,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import AppHeader from '@/components/layout/AppHeader';
 import GoogleMapView, { markerIcons } from '@/components/map/GoogleMapView';
 import SafetyButton from '@/components/common/SafetyButton';
+import { distanceMiles, distanceParts, walkMinutes } from '@/components/crew-v2/geo';
 import { openNavigation, getCurrentLocation as getDeviceLocation } from '@/lib/navigation';
 
 const AMENITY_TYPES = [
@@ -23,12 +18,12 @@ const AMENITY_TYPES = [
   { value: 'atm', label: 'ATMs', icon: Banknote, color: '#22C55E', emoji: '💵' },
   { value: 'entrance', label: 'Stadium Entrances', icon: DoorOpen, color: '#8B5CF6', emoji: '🚪' },
 ];
+const amenityType = (type) => AMENITY_TYPES.find(a => a.value === type);
 
 // Create amenity icons dynamically
 const createAmenityIcon = (type) => {
-  const amenity = AMENITY_TYPES.find(a => a.value === type);
+  const amenity = amenityType(type);
   if (!amenity) return markerIcons.tailgate;
-  
   return {
     url: 'data:image/svg+xml,' + encodeURIComponent(`
       <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
@@ -41,69 +36,79 @@ const createAmenityIcon = (type) => {
   };
 };
 
+const LEGEND = [
+  { label: 'You', color: '#FF6B35' },
+  { label: 'Car', color: '#3B82F6' },
+  { label: 'Tailgates', color: '#10B981' },
+];
+
 export default function CampusMap() {
-  const navigate = useNavigate();
   const [userLocation, setUserLocation] = useState(null);
   const [selectedFilters, setSelectedFilters] = useState(['restroom', 'food', 'first_aid']);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAmenity, setSelectedAmenity] = useState(null);
-  
+
   useEffect(() => {
     getDeviceLocation()
-      .then(loc => setUserLocation({
-        lat: loc.lat,
-        lng: loc.lng,
-        accuracy: loc.accuracy,
-      }))
+      .then(loc => setUserLocation({ lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy }))
       .catch(() => {});
   }, []);
-  
+
   // Fetch school data with amenities
   const { data: schools = [] } = useQuery({
     queryKey: ['schools'],
     queryFn: () => client.entities.School.list(),
   });
-  
+
   // Fetch tailgates for map
   const { data: tailgates = [] } = useQuery({
     queryKey: ['map-tailgates'],
     queryFn: () => client.entities.Tailgate.filter({ is_public: true }),
   });
-  
-  // Fetch user's parked car
+
+  // The user's parked car: the spot saved in Find My Car (CarLocation), falling back to the legacy ParkedCar entity
   const [parkedCar, setParkedCar] = useState(null);
   useEffect(() => {
     client.auth.me().then(async (user) => {
+      const saved = await client.entities.CarLocation.filter({ user_email: user.email }, '-created_date', 1).catch(() => []);
+      if (saved[0]?.latitude != null) {
+        setParkedCar({ ...saved[0], lat: saved[0].latitude, lng: saved[0].longitude });
+        return;
+      }
       const cars = await client.entities.ParkedCar.filter({ user_id: user.id }, '-created_date', 1);
       if (cars.length > 0) setParkedCar(cars[0]);
     }).catch(() => {});
   }, []);
-  
+
   const school = schools[0];
-  
+  const amenities = useMemo(() => school?.amenities || [], [school]);
+  const q = searchQuery.trim().toLowerCase();
+  const matches = (...vals) => !q || vals.some(v => v?.toLowerCase?.().includes(q));
+
   // Generate markers
   const markers = [];
-  
-  // Add amenity markers
-  if (school?.amenities) {
-    school.amenities.forEach((amenity, idx) => {
-      if (selectedFilters.includes(amenity.type)) {
-        markers.push({
-          id: `amenity-${idx}`,
-          lat: amenity.lat,
-          lng: amenity.lng,
-          icon: createAmenityIcon(amenity.type),
-          popup: amenity.name || amenity.type,
-          type: 'amenity',
-          data: amenity,
-        });
-      }
-    });
-  }
-  
-  // Add tailgate markers
+  const visibleAmenities = [];
+
+  amenities.forEach((amenity, idx) => {
+    const info = amenityType(amenity.type);
+    // While searching, look across every category, not only the selected chips
+    if ((q || selectedFilters.includes(amenity.type)) && matches(amenity.name, amenity.type, info?.label)) {
+      const marker = {
+        id: `amenity-${idx}`,
+        lat: amenity.lat,
+        lng: amenity.lng,
+        icon: createAmenityIcon(amenity.type),
+        popup: amenity.name || amenity.type,
+        type: 'amenity',
+        data: amenity,
+      };
+      markers.push(marker);
+      visibleAmenities.push(marker);
+    }
+  });
+
   tailgates.forEach(t => {
-    if (t.location?.lat && t.location?.lng) {
+    if (t.location?.lat && t.location?.lng && matches(t.name, t.location?.lot_name, 'tailgate')) {
       markers.push({
         id: `tailgate-${t.id}`,
         lat: t.location.lat,
@@ -111,13 +116,12 @@ export default function CampusMap() {
         icon: markerIcons.tailgate,
         popup: t.name,
         type: 'tailgate',
-        data: t,
+        data: { ...t, lat: t.location.lat, lng: t.location.lng },
       });
     }
   });
-  
-  // Add car marker
-  if (parkedCar) {
+
+  if (parkedCar && matches('car', 'my car', parkedCar.lot_name)) {
     markers.push({
       id: 'my-car',
       lat: parkedCar.lat,
@@ -125,188 +129,221 @@ export default function CampusMap() {
       icon: markerIcons.car,
       popup: 'Your Car',
       type: 'car',
-      data: parkedCar,
+      data: { ...parkedCar, name: parkedCar.lot_name ? `Your car · ${parkedCar.lot_name}` : 'Your Car' },
     });
   }
-  
+
+  const nearby = visibleAmenities
+    .map(m => ({ ...m, mi: distanceMiles(userLocation, m) }))
+    .sort((a, b) => (a.mi ?? Infinity) - (b.mi ?? Infinity));
+
+  const allSelected = selectedFilters.length === AMENITY_TYPES.length;
   const toggleFilter = (value) => {
-    setSelectedFilters(prev =>
-      prev.includes(value)
-        ? prev.filter(f => f !== value)
-        : [...prev, value]
-    );
+    setSelectedFilters(prev => (prev.includes(value) ? prev.filter(f => f !== value) : [...prev, value]));
   };
-  
+  const countOf = (type) => amenities.filter(a => a.type === type).length;
+
   const navigateToAmenity = async (amenity) => {
     if (!amenity.lat || !amenity.lng) return;
     try {
-      await openNavigation(
-        amenity.lat,
-        amenity.lng,
-        amenity.name || amenity.type,
-        userLocation
-      );
+      await openNavigation(amenity.lat, amenity.lng, amenity.name || amenity.type, userLocation);
     } catch (error) {
       console.error('Navigation error:', error);
     }
   };
-  
+
+  const sel = selectedAmenity;
+  const selInfo = sel?.type === 'amenity' ? amenityType(sel.data?.type) : null;
+  const selMi = sel ? distanceMiles(userLocation, sel) : null;
+  const selDist = distanceParts(selMi);
+  const selWalk = walkMinutes(selMi);
+  const carDist = parkedCar ? distanceParts(distanceMiles(userLocation, parkedCar)) : null;
+
   return (
-    <div className="gd-page !pb-0">
-      {/* Header */}
-      <div className="gd-header px-4 pt-6 pb-4">
-        <div className="flex items-center gap-3 mb-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/20"
-            onClick={() => navigate(createPageUrl('Home'))}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold">Campus Map</h1>
-            <p className="text-white/80 text-sm">Find amenities & navigate</p>
-          </div>
-        </div>
-        
-        {/* Search */}
+    <div className="gd-page">
+      <AppHeader eyebrow="Stadium Guide" title="Campus Map" subtitle={school?.name ? `${school.name} game day` : 'Find amenities & navigate'} back="Home">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-          <Input
-            placeholder="Search locations..."
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-on-surface-variant" />
+          <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-white/90 border-0 h-12 text-black placeholder:text-slate-500"
+            placeholder="Search gates, restrooms, food, tailgates"
+            className="gd-input pl-12 pr-10"
+            aria-label="Search the map"
           />
-        </div>
-      </div>
-      
-      {/* Filter Pills */}
-      <div className="px-4 py-3 bg-surface-container shadow-sm overflow-x-auto">
-        <div className="flex gap-2">
-          {AMENITY_TYPES.map(({ value, label, icon: Icon, color }) => (
-            <Badge
-              key={value}
-              variant={selectedFilters.includes(value) ? "default" : "outline"}
-              className={`shrink-0 cursor-pointer px-3 py-2 gap-1.5 transition-all ${
-                selectedFilters.includes(value) 
-                  ? 'text-white' 
-                  : 'hover:bg-slate-100'
-              }`}
-              style={selectedFilters.includes(value) ? { backgroundColor: color } : {}}
-              onClick={() => toggleFilter(value)}
+          {searchQuery && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-on-surface-variant"
             >
-              <Icon className="w-4 h-4" />
-              {label}
-            </Badge>
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </AppHeader>
+
+      <main className="space-y-4 px-4 pt-4">
+        {/* Filter chips */}
+        <div className="gd-chip-row" role="toolbar" aria-label="Amenity filters">
+          <button
+            type="button"
+            className="gd-chip normal-case"
+            aria-pressed={allSelected}
+            onClick={() => setSelectedFilters(allSelected ? [] : AMENITY_TYPES.map(a => a.value))}
+          >
+            <MapIcon className="h-3.5 w-3.5" />All pins ({amenities.length})
+          </button>
+          {AMENITY_TYPES.map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              type="button"
+              className="gd-chip normal-case"
+              aria-pressed={!allSelected && selectedFilters.includes(value)}
+              onClick={() => (allSelected ? setSelectedFilters([value]) : toggleFilter(value))}
+            >
+              <Icon className="h-3.5 w-3.5" />{label} ({countOf(value)})
+            </button>
           ))}
         </div>
-      </div>
-      
-      {/* Map */}
-      <div className="h-[calc(100vh-200px)] relative">
-        <GoogleMapView
-          center={userLocation ? [userLocation.lat, userLocation.lng] : school?.stadium_location ? [school.stadium_location.lat, school.stadium_location.lng] : [33.2084, -87.5503]}
-          zoom={15}
-          userLocation={userLocation}
-          markers={markers}
-          onMarkerClick={(marker) => setSelectedAmenity(marker)}
-        />
-        
-        {/* Selected Amenity Card */}
-        {selectedAmenity && (
-          <div className="absolute bottom-4 left-4 right-4 z-20">
-            <div className="bg-surface-container rounded-2xl shadow-xl p-4">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div 
-                    className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl text-white"
-                    style={{ backgroundColor: AMENITY_TYPES.find(a => a.value === selectedAmenity.data?.type)?.color || '#6366F1' }}
-                  >
-                    {selectedAmenity.type === 'tailgate' ? '🎉' : 
-                     selectedAmenity.type === 'car' ? '🚗' :
-                     AMENITY_TYPES.find(a => a.value === selectedAmenity.data?.type)?.emoji || '📍'}
-                  </div>
-                  <div>
-                    <p className="font-bold text-slate-900">
-                      {selectedAmenity.data?.name || selectedAmenity.popup}
-                    </p>
-                    <p className="text-sm text-slate-500 capitalize">
-                      {selectedAmenity.type === 'amenity' ? selectedAmenity.data?.type?.replace('_', ' ') : selectedAmenity.type}
-                    </p>
-                  </div>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={() => setSelectedAmenity(null)}
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
-              
-              <Button 
-                className="w-full bg-purple-500 hover:bg-purple-600"
-                onClick={() => navigateToAmenity(selectedAmenity.data || { lat: selectedAmenity.lat, lng: selectedAmenity.lng })}
-              >
-                <Navigation className="w-4 h-4 mr-2" />
-                Navigate Here
-              </Button>
-            </div>
+
+        {/* Map */}
+        <div className="gd-card relative h-[52vh] min-h-[320px] overflow-hidden">
+          <GoogleMapView
+            center={userLocation ? [userLocation.lat, userLocation.lng] : school?.stadium_location ? [school.stadium_location.lat, school.stadium_location.lng] : [33.2084, -87.5503]}
+            zoom={15}
+            userLocation={userLocation}
+            markers={markers}
+            onMarkerClick={(marker) => setSelectedAmenity(marker)}
+            className="rounded-none"
+          />
+
+          {/* Legend */}
+          <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-2.5 rounded-full bg-surface/90 px-3 py-1.5 text-xs font-semibold text-on-surface shadow backdrop-blur">
+            {LEGEND.map(l => (
+              <span key={l.label} className="flex items-center gap-1">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: l.color }} />{l.label}
+              </span>
+            ))}
           </div>
-        )}
-        
-        {/* Legend */}
-        <div className="absolute top-4 right-4 z-10">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="secondary" size="sm" className="shadow-lg">
-                <Filter className="w-4 h-4 mr-2" />
-                Legend
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-80">
-              <SheetHeader>
-                <SheetTitle>Map Legend</SheetTitle>
-              </SheetHeader>
-              <div className="py-6 space-y-4">
-                <div className="space-y-3">
-                  <h4 className="font-medium text-slate-700">Amenities</h4>
-                  {AMENITY_TYPES.map(({ value, label, icon: Icon, color }) => (
-                    <div key={value} className="flex items-center gap-3">
-                      <div 
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-white"
-                        style={{ backgroundColor: color }}
-                      >
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <span className="text-sm">{label}</span>
-                    </div>
-                  ))}
+
+          {/* Selected place */}
+          {sel && (
+            <div className="absolute inset-x-3 bottom-3 z-20 rounded-2xl border border-outline-variant bg-surface-container/95 p-4 shadow-xl backdrop-blur dark:border-white/[0.08]">
+              <div className="flex items-start gap-3">
+                <span
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl"
+                  style={{ backgroundColor: `${selInfo?.color || (sel.type === 'car' ? '#3B82F6' : '#10B981')}26` }}
+                  aria-hidden="true"
+                >
+                  {sel.type === 'tailgate' ? '🎉' : sel.type === 'car' ? '🚗' : selInfo?.emoji || '📍'}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-display text-xl font-bold uppercase leading-tight text-on-surface">
+                    {sel.data?.name || sel.popup}
+                  </p>
+                  <p className="text-xs text-on-surface-variant">
+                    {sel.type === 'amenity' ? selInfo?.label || sel.data?.type?.replace('_', ' ') : sel.type === 'car' ? 'Your parked car' : 'Tailgate'}
+                    {selDist && ` · ${selDist.value} ${selDist.unit}${selWalk ? ` · ~${selWalk} min walk` : ''}`}
+                  </p>
                 </div>
-                
-                <div className="space-y-3 pt-4 border-t">
-                  <h4 className="font-medium text-slate-700">Other</h4>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white">🎉</div>
-                    <span className="text-sm">Tailgates</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">🚗</div>
-                    <span className="text-sm">Your Car</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white">📍</div>
-                    <span className="text-sm">Your Location</span>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={() => setSelectedAmenity(null)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-container-high text-on-surface-variant dark:bg-surface-container-highest"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-            </SheetContent>
-          </Sheet>
+              <button
+                type="button"
+                onClick={() => navigateToAmenity(sel.data?.lat ? sel.data : { lat: sel.lat, lng: sel.lng, name: sel.popup })}
+                className="gd-btn-primary mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl font-display text-lg font-bold uppercase"
+              >
+                <Navigation className="h-5 w-5" />Navigate here
+              </button>
+            </div>
+          )}
         </div>
-      </div>
-      
+
+        {/* Nearby list */}
+        <section className="space-y-2">
+          <div className="flex items-end justify-between">
+            <h2 className="font-display text-lg font-bold uppercase text-on-surface">{q ? 'Results' : 'Nearby'}</h2>
+            {userLocation && nearby.length > 1 && (
+              <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Closest first</span>
+            )}
+          </div>
+          {parkedCar && !q && (
+            <button
+              type="button"
+              onClick={() => setSelectedAmenity(markers.find(m => m.id === 'my-car'))}
+              className="gd-card flex w-full items-center gap-3 p-3 text-left"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-300">
+                <Car className="h-5 w-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold text-on-surface">Your car{parkedCar.lot_name ? ` · ${parkedCar.lot_name}` : ''}</span>
+                <span className="block text-xs text-on-surface-variant">
+                  {carDist ? `${carDist.value} ${carDist.unit} away` : 'Saved in Find My Car'}
+                </span>
+              </span>
+              <MapPin className="h-5 w-5 shrink-0 text-on-surface-variant" />
+            </button>
+          )}
+          {nearby.length === 0 ? (
+            <div className="gd-card px-6 py-8 text-center">
+              <p className="font-display text-lg font-bold uppercase text-on-surface">
+                {q ? 'No places match' : amenities.length ? 'No filters selected' : 'No amenities mapped yet'}
+              </p>
+              <p className="mt-1 text-sm text-on-surface-variant">
+                {q ? 'Try another search term.' : amenities.length ? 'Pick a category above to show pins.' : 'Amenities appear here once they are added for your school.'}
+              </p>
+            </div>
+          ) : (
+            nearby.map(m => {
+              const info = amenityType(m.data.type);
+              const d = distanceParts(m.mi);
+              return (
+                <div key={m.id} className="gd-card flex items-center gap-3 p-3">
+                  <button type="button" onClick={() => setSelectedAmenity(m)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                    <span
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg"
+                      style={{ backgroundColor: `${info?.color || '#64748B'}26` }}
+                      aria-hidden="true"
+                    >
+                      {info?.emoji || '📍'}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold text-on-surface">{m.data.name || info?.label}</span>
+                      <span className="block text-xs text-on-surface-variant">
+                        {info?.label}{d ? ` · ${d.value} ${d.unit}` : ''}
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Navigate to ${m.data.name || info?.label}`}
+                    onClick={() => navigateToAmenity(m.data)}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-orange-600 hover:bg-brand/10 dark:text-brand-soft"
+                  >
+                    <Navigation className="h-5 w-5" />
+                  </button>
+                </div>
+              );
+            })
+          )}
+          {tailgates.some(t => t.location?.lat) && !q && (
+            <p className="flex items-center gap-1.5 px-1 text-xs text-on-surface-variant">
+              <PartyPopper className="h-3.5 w-3.5" />Green pins are public tailgates. Tap one for directions.
+            </p>
+          )}
+        </section>
+      </main>
+
       <SafetyButton />
     </div>
   );
