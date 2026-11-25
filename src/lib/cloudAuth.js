@@ -80,6 +80,7 @@ export async function refreshCloudUser({ pull = true } = {}) {
 
   const user = toAppUser(session.user, profile);
   setItem(AUTH_STORAGE_KEY, user);
+  window.dispatchEvent(new CustomEvent('gameday:user', { detail: user }));
 
   // Theme follows the account across devices
   const theme = profile.settings?.theme;

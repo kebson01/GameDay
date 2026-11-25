@@ -48,6 +48,17 @@ export default function Home() {
   const [viewingTeam, setViewingTeam] = useState(null);
   const [viewingArticle, setViewingArticle] = useState(null);
   const [selectedTeamId, setSelectedTeamId] = useState(null); // null = All
+
+  // Tuck the teams row away once you scroll into the feed; bring it back at the top
+  const [teamsRowHidden, setTeamsRowHidden] = useState(false);
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      setTeamsRowHidden(prev => (prev ? y > 8 : y > 72)); // hysteresis avoids flicker
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   const [openStory, setOpenStory] = useState(null);
   
   useEffect(() => {
@@ -60,7 +71,13 @@ export default function Home() {
     // Listen for login prompts from other components
     const handleShowLogin = () => setShowAuthModal(true);
     window.addEventListener('gameday:showLogin', handleShowLogin);
-    return () => window.removeEventListener('gameday:showLogin', handleShowLogin);
+    // The account finished syncing at startup (teams, settings): use the fresh copy
+    const handleUser = (e) => { if (e.detail) setUser(e.detail); };
+    window.addEventListener('gameday:user', handleUser);
+    return () => {
+      window.removeEventListener('gameday:showLogin', handleShowLogin);
+      window.removeEventListener('gameday:user', handleUser);
+    };
   }, []);
   
   const requireAuth = (feature, callback) => {
@@ -119,17 +136,17 @@ export default function Home() {
     queryKey: ['followed-teams', favoriteTeams.join('|')],
     queryFn: async () => {
       const teams = await Promise.all(favoriteTeams.map(findTeam));
-      return favoriteTeams
-        .map((name, i) => teams[i] && {
-          id: String(teams[i].id),
-          name,
-          short: teams[i].location || teams[i].shortDisplayName || name, // "Alabama", "Miami"
-          logo: teamLogoUrl(teams[i].id),
-        })
-        .filter(Boolean);
+      // Every followed team gets a tile; if ESPN can't be reached or the name
+      // doesn't match, show it with initials instead of dropping it.
+      return favoriteTeams.map((name, i) => (teams[i] ? {
+        id: String(teams[i].id),
+        name,
+        short: teams[i].location || teams[i].shortDisplayName || name, // "Alabama", "Miami"
+        logo: teamLogoUrl(teams[i].id),
+      } : { id: `name:${name}`, name, short: name.split(' ')[0], logo: null, unresolved: true }));
     },
     enabled: favoriteTeams.length > 0,
-    staleTime: Infinity,
+    placeholderData: () => favoriteTeams.map(name => ({ id: `name:${name}`, name, short: name.split(' ')[0], logo: null, unresolved: true })),
   });
   const selectedTeam = followedTeams.find(t => t.id === selectedTeamId) || null;
 
@@ -200,7 +217,7 @@ export default function Home() {
   return (
     <div className="gd-page !pb-24">
       {/* Header with followed-teams row */}
-      <AppHeader eyebrow="Saturday Live" title="GameDay">
+      <AppHeader eyebrow="Saturday Live" title="GameDay" childrenHidden={teamsRowHidden}>
         <TeamsRow
           teams={followedTeams}
           selectedId={selectedTeamId}

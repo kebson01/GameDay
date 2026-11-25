@@ -1194,9 +1194,10 @@ export async function findTeam(name) {
     teamIndexPromise = fetch(`${ESPN_BASE}/teams?limit=1000`)
       .then(r => (r.ok ? r.json() : null))
       .then(d => (d?.sports?.[0]?.leagues?.[0]?.teams || []).map(t => t.team))
-      .catch(() => { teamIndexPromise = null; return []; });
+      .catch(() => []);
   }
   const teams = await teamIndexPromise;
+  if (!teams.length) teamIndexPromise = null; // try again next time
   const match =
     teams.find(t => t.displayName?.toLowerCase() === needle) ||
     teams.find(t => t.location?.toLowerCase() === needle) ||

@@ -21,6 +21,7 @@ export default function AppHeader({
   showProfile = true,
   className,
   children, // optional row under the title (chips, tabs, search)
+  childrenHidden = false, // collapse that row (e.g. while scrolled down)
 }) {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -38,7 +39,7 @@ export default function AppHeader({
   return (
     <header
       className={cn(
-        'sticky top-0 z-30 bg-surface/85 backdrop-blur-xl border-b border-outline-variant/60',
+        'sticky top-0 z-30 bg-surface/95 backdrop-blur-xl border-b border-outline-variant/60',
         'shadow-[0_1px_8px_rgba(0,0,0,0.08)] dark:shadow-[0_1px_8px_rgba(0,0,0,0.3)]',
         'pt-[max(0.75rem,env(safe-area-inset-top))]',
         className
@@ -99,7 +100,20 @@ export default function AppHeader({
           )}
         </div>
       </div>
-      {children && <div className="px-4 pb-3">{children}</div>}
+      {children && (
+        <div
+          className={cn(
+            'grid transition-[grid-template-rows,opacity] duration-300 ease-out',
+            childrenHidden ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'
+          )}
+          aria-hidden={childrenHidden || undefined}
+          inert={childrenHidden ? '' : undefined}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="px-4 pb-3">{children}</div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
