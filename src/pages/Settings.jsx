@@ -13,6 +13,8 @@ import AppHeader from '@/components/layout/AppHeader';
 import SafetyButton from '@/components/common/SafetyButton';
 import AuthModal from '@/components/auth/AuthModal';
 import { GdSwitch, RowGroup, SettingRow } from '@/components/crew-v2/ui';
+import AccentPicker from '@/components/settings/AccentPicker';
+import { FAVORITES_EVENT, favoriteTeamsOf } from '@/lib/favorites';
 
 const THEMES = [
   { value: 'system', label: 'System', icon: Monitor },
@@ -31,8 +33,13 @@ export default function Settings() {
     school: '',
   });
 
+  const [followedTeams, setFollowedTeams] = useState(() => favoriteTeamsOf(null));
+
   useEffect(() => {
-    auth.me().then(setUser).catch(() => {});
+    auth.me().then(u => { setUser(u); setFollowedTeams(favoriteTeamsOf(u)); }).catch(() => {});
+    const onFavorites = (e) => Array.isArray(e.detail) && setFollowedTeams(e.detail);
+    window.addEventListener(FAVORITES_EVENT, onFavorites);
+    return () => window.removeEventListener(FAVORITES_EVENT, onFavorites);
   }, []);
 
   const updateMutation = useMutation({
@@ -115,12 +122,13 @@ export default function Settings() {
                 role="radio"
                 aria-checked={themePreference === value}
                 onClick={() => setThemePreference(value)}
-                className={themePreference === value ? '!bg-brand !text-white shadow-[0_0_14px_-4px_rgba(249,115,22,0.6)]' : ''}
+                className={themePreference === value ? '!bg-brand !text-white shadow-[0_0_14px_-4px_rgb(var(--gd-brand)/0.6)]' : ''}
               >
                 <Icon className="h-4 w-4" />{label}
               </button>
             ))}
           </div>
+          <AccentPicker teams={followedTeams} />
         </section>
 
         {/* Notifications */}

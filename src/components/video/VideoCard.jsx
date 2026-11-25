@@ -23,7 +23,7 @@ function Thumb({ video, className, large = false }) {
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
       <span
         className={cn(
-          'absolute inset-0 m-auto flex items-center justify-center rounded-full bg-brand text-white shadow-[0_0_18px_-2px_rgba(249,115,22,0.7)]',
+          'absolute inset-0 m-auto flex items-center justify-center rounded-full bg-brand text-white shadow-[0_0_18px_-2px_rgb(var(--gd-brand)/0.7)]',
           large ? 'w-14 h-14' : 'w-9 h-9'
         )}
       >

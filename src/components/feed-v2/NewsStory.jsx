@@ -28,7 +28,7 @@ function PlayBadge({ size = 'lg' }) {
   return (
     <span
       className={cn(
-        'absolute inset-0 m-auto flex items-center justify-center rounded-full bg-brand text-white shadow-[0_0_20px_-2px_rgba(249,115,22,0.7)]',
+        'absolute inset-0 m-auto flex items-center justify-center rounded-full bg-brand text-white shadow-[0_0_20px_-2px_rgb(var(--gd-brand)/0.7)]',
         size === 'lg' ? 'h-14 w-14' : 'h-9 w-9'
       )}
       aria-hidden="true"
@@ -47,14 +47,14 @@ export function LeadStory({ article, onOpenVideo }) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
         {article.is_video && <PlayBadge />}
         <div className="absolute left-3 right-3 top-3 flex items-center gap-2">
-          <span className="gd-pill bg-brand text-white shadow-[0_0_14px_-4px_rgba(249,115,22,0.8)]">
+          <span className="gd-pill bg-brand text-white shadow-[0_0_14px_-4px_rgb(var(--gd-brand)/0.8)]">
             <span className="h-1.5 w-1.5 rounded-full bg-white" />
             {article.is_video ? 'Video' : 'Top story'} · {formatNewsDate(article.published)}
           </span>
           {article.premium && <span className="gd-pill ml-auto bg-amber-400 text-ink-900">ESPN+</span>}
         </div>
         <div className="absolute inset-x-0 bottom-0 p-4">
-          <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#ffb690]">
+          <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-brand-ondark">
             {article.source || 'ESPN'} · College Football
           </p>
           <h2 className="line-clamp-3 font-display text-[28px] font-bold uppercase leading-[1.05] tracking-tight text-white">
@@ -63,7 +63,7 @@ export function LeadStory({ article, onOpenVideo }) {
           {article.description && (
             <p className="mt-1.5 line-clamp-2 text-sm text-white/80">{article.description}</p>
           )}
-          <p className="mt-2 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-[#ffb690]">
+          <p className="mt-2 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-brand-ondark">
             {article.is_video ? (
               <><Play className="h-3 w-3 fill-current" />Watch</>
             ) : (

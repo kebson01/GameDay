@@ -91,6 +91,11 @@ button:focus-visible {
     --gd-outline-variant: 226 232 240;
     --gd-brand: 249 115 22;       /* #f97316 */
     --gd-brand-soft: 234 88 12;   /* orange text on light */
+    --gd-brand-alt: 251 191 36;   /* secondary accent (amber-400); team alternate color */
+    --gd-brand-ondark: 255 182 144; /* accent text on photo overlays (#ffb690) */
+    --gd-brand-text: var(--gd-brand);       /* text-brand (accent.js may split it from fills) */
+    --c-orange-t500: var(--c-orange-500);   /* text-orange-500 */
+    --c-orange-t600: var(--c-orange-600);   /* text-orange-600 */
     --gd-win: 5 150 105;          /* emerald */
     --gd-highlight: 217 119 6;    /* amber */
 
@@ -144,6 +149,8 @@ button:focus-visible {
     --gd-outline-variant: 45 52 73;
     --gd-brand: 249 115 22;
     --gd-brand-soft: 255 182 144;           /* #ffb690 */
+    --gd-brand-alt: 251 191 36;
+    --gd-brand-ondark: 255 182 144;
     --gd-win: 78 222 163;                   /* #4edea3 */
     --gd-highlight: 255 185 95;             /* #ffb95f */
 
@@ -202,7 +209,7 @@ button:focus-visible {
 @layer components {
   /* Light: brand-orange header. Dark: navy glass header like the design sample. */
   .gd-header {
-    @apply bg-gradient-to-r from-orange-500 via-orange-400 to-amber-400 text-white;
+    @apply bg-gradient-to-r from-orange-500 via-orange-400 to-brand-alt text-white;
   }
   .dark .gd-header {
     @apply bg-none bg-surface/90 backdrop-blur-xl border-b border-outline-variant text-on-surface shadow-[0_1px_8px_rgba(0,0,0,0.25)];
@@ -223,7 +230,7 @@ button:focus-visible {
   }
   /* Highlighted card (live/featured): soft orange glow */
   .gd-card-glow {
-    @apply shadow-[0_0_24px_-6px_rgba(249,115,22,0.35)] dark:shadow-[0_0_24px_-4px_rgba(249,115,22,0.28),0_12px_24px_-4px_rgba(15,23,42,0.6)];
+    @apply shadow-[0_0_24px_-6px_rgb(var(--gd-brand)/0.35)] dark:shadow-[0_0_24px_-4px_rgb(var(--gd-brand)/0.28),0_12px_24px_-4px_rgba(15,23,42,0.6)];
   }
   .gd-eyebrow {
     @apply text-[11px] font-bold uppercase tracking-[0.14em] text-orange-600 dark:text-brand-soft;
@@ -235,7 +242,7 @@ button:focus-visible {
       transition-colors hover:text-on-surface dark:border-white/[0.08];
   }
   .gd-chip[aria-pressed='true'], .gd-chip[aria-selected='true'] {
-    @apply border-transparent bg-brand text-white shadow-[0_0_14px_-4px_rgba(249,115,22,0.6)];
+    @apply border-transparent bg-brand text-white shadow-[0_0_14px_-4px_rgb(var(--gd-brand)/0.6)];
   }
   .gd-chip-row {
     @apply -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none];
@@ -266,7 +273,7 @@ button:focus-visible {
   }
 
   .gd-btn-primary {
-    @apply bg-brand hover:bg-orange-600 text-white font-semibold shadow-[0_0_16px_-4px_rgba(249,115,22,0.5)];
+    @apply bg-brand hover:bg-orange-600 text-white font-semibold shadow-[0_0_16px_-4px_rgb(var(--gd-brand)/0.5)];
   }
 
   .gd-section-title {

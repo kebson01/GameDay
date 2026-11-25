@@ -144,7 +144,7 @@ export default function GameDayAssistant() {
             exit={{ scale: 0 }}
             onClick={() => setIsOpen(true)}
             aria-label="Ask the GameDay AI assistant"
-            className="fixed bottom-[10.5rem] right-4 z-40 h-11 px-4 rounded-full flex items-center gap-1.5 bg-surface-container/95 backdrop-blur border border-orange-500/50 text-orange-600 dark:text-brand-soft font-display text-lg font-bold uppercase tracking-wide shadow-[0_0_18px_-4px_rgba(249,115,22,0.55)]"
+            className="fixed bottom-[10.5rem] right-4 z-40 h-11 px-4 rounded-full flex items-center gap-1.5 bg-surface-container/95 backdrop-blur border border-orange-500/50 text-orange-600 dark:text-brand-soft font-display text-lg font-bold uppercase tracking-wide shadow-[0_0_18px_-4px_rgb(var(--gd-brand)/0.55)]"
           >
             {/* Pill sits above the SOS button (bottom-24) so it never covers it */}
             <Sparkles className="w-5 h-5" />

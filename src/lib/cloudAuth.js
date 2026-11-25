@@ -7,6 +7,7 @@ import { supabase } from './supabase';
 import { getItem, setItem, removeItem } from './localStorage';
 import { pullAll } from './cloudSync';
 import { getThemePreference, setThemePreference } from './theme';
+import { getAccentPreference, setAccentPreference, sameAccent } from './accent';
 
 const AUTH_STORAGE_KEY = 'gameday_auth';
 const PENDING_FAVORITES_KEY = 'gameday_pending_favorites';
@@ -83,6 +84,8 @@ export async function refreshCloudUser({ pull = true } = {}) {
   // Theme follows the account across devices
   const theme = profile.settings?.theme;
   if (theme && theme !== getThemePreference()) setThemePreference(theme, { fromCloud: true });
+  const accent = profile.settings?.accent;
+  if (accent && !sameAccent(accent, getAccentPreference())) setAccentPreference(accent, { fromCloud: true });
 
   if (pull) await pullAll().catch(err => console.warn('[GameDay sync]', err));
   return user;
@@ -171,6 +174,13 @@ export async function initCloudAuth() {
       const pref = typeof e.detail === 'string' ? e.detail : e.detail?.preference;
       cloudUpdate({ settings: { theme: pref } }).catch(() => {});
     }
+  });
+
+  // Same for the accent color (App color in Settings)
+  window.addEventListener('gameday:accent', (e) => {
+    if (e.detail?.fromCloud) return;
+    const user = getItem(AUTH_STORAGE_KEY, null);
+    if (user?.cloud) cloudUpdate({ settings: { accent: e.detail?.preference } }).catch(() => {});
   });
 
   return refreshCloudUser();

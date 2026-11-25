@@ -60,7 +60,7 @@ export default function AppHeader({
               type="button"
               onClick={() => navigate(createPageUrl('Home'))}
               aria-label="GameDay home"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-[0_0_16px_-2px_rgba(249,115,22,0.45)]"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-[0_0_16px_-2px_rgb(var(--gd-brand)/0.45)]"
             >
               <span className="text-xl leading-none" aria-hidden="true">🏈</span>
             </button>

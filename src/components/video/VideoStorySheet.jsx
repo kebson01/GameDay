@@ -48,7 +48,7 @@ export default function VideoStorySheet({ video, open, onOpenChange }) {
             <img src={image} alt="" className="w-full h-full object-cover" />
           )}
           <div className="absolute inset-0 bg-black/25" />
-          <span className="absolute inset-0 m-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand text-white shadow-[0_0_24px_-2px_rgba(249,115,22,0.8)]">
+          <span className="absolute inset-0 m-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand text-white shadow-[0_0_24px_-2px_rgb(var(--gd-brand)/0.8)]">
             <Play className="ml-1 h-7 w-7 fill-white" />
           </span>
           {video.duration_label && (

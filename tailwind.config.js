@@ -47,6 +47,8 @@ module.exports = {
   			brand: {
   				DEFAULT: token('brand'),
   				soft: token('brand-soft'),
+  				alt: token('brand-alt'),
+  				ondark: token('brand-ondark'),
   				win: token('win'),
   				highlight: token('highlight'),
   			},
@@ -100,6 +102,16 @@ module.exports = {
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
   			}
+  		},
+  		// Accent text can differ from accent fills: with a team accent in dark mode,
+  		// fills stay dark enough for white labels while text stays light enough to
+  		// read on navy (see src/lib/accent.js). Defaults equal the fill colors.
+  		textColor: {
+  			brand: { DEFAULT: token('brand-text') },
+  			orange: {
+  				500: 'rgb(var(--c-orange-t500) / <alpha-value>)',
+  				600: 'rgb(var(--c-orange-t600) / <alpha-value>)',
+  			},
   		},
   		keyframes: {
   			'accordion-down': {

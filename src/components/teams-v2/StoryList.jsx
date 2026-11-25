@@ -57,7 +57,7 @@ export default function StoryList({ stories = [], isLoading, max = 6, emptyText 
                 )}
                 {s.is_video && (
                   <>
-                    <span className="absolute inset-0 m-auto flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white shadow-[0_0_14px_-2px_rgba(249,115,22,0.7)]">
+                    <span className="absolute inset-0 m-auto flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white shadow-[0_0_14px_-2px_rgb(var(--gd-brand)/0.7)]">
                       <Play className="ml-0.5 h-3.5 w-3.5 fill-white" />
                     </span>
                     {s.duration_label && (
