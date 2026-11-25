@@ -13,6 +13,8 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Dark system nav bar with light buttons, matching the app's bottom tab bar -->
+        <item name="android:navigationBarColor">#0B1326</item>
     </style>
 
 

@@ -18,8 +18,8 @@
       "splashImmersive": true
     },
     "StatusBar": {
-      "style": "LIGHT",
-      "backgroundColor": "#F97316"
+      "style": "DARK",
+      "backgroundColor": "#0B1326"
     },
     "Keyboard": {
       "resize": "body",
@@ -31,7 +31,7 @@
   },
   "android": {
     "allowMixedContent": true,
-    "backgroundColor": "#F97316"
+    "backgroundColor": "#0B1326"
   },
   "ios": {
     "backgroundColor": "#F97316",

@@ -37,7 +37,7 @@ import FeaturedGame from '@/components/scores/FeaturedGame';
 import ScoresCarousel from '@/components/home/ScoresCarousel';
 import StoryCard from '@/components/home/StoryCard';
 import TopHeadlines from '@/components/home/TopHeadlines';
-import { fetchVideoNews, findTeamId, findTeam } from '@/lib/sportsApi';
+import { fetchVideoNews, findTeamId, findTeam, POPULAR_TEAMS } from '@/lib/sportsApi';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -130,6 +130,18 @@ export default function Home() {
     enabled: !!user,
   });
   
+  // Built-in team list: gives a logo right away (no network) for the common
+  // teams, so the row doesn't sit on initials while ESPN's large team index
+  // loads, or when that request fails on the device.
+  const localFollowedTeam = (name) => {
+    const needle = name.trim().toLowerCase();
+    const known =
+      POPULAR_TEAMS.find(t => t.name.toLowerCase() === needle) ||
+      POPULAR_TEAMS.find(t => t.name.toLowerCase().startsWith(needle + ' '));
+    return known
+      ? { id: String(known.id), name, short: name.split(' ')[0], logo: teamLogoUrl(known.id) }
+      : { id: `name:${name}`, name, short: name.split(' ')[0], logo: null, unresolved: true };
+  };
   // Followed teams for the top row (names in the profile -> ESPN ids + logos)
   const favoriteTeams = user ? (user.favorite_teams || []) : (userLoading ? [] : getGuestTeams());
   const { data: followedTeams = [] } = useQuery({
@@ -143,10 +155,10 @@ export default function Home() {
         name,
         short: teams[i].location || teams[i].shortDisplayName || name, // "Alabama", "Miami"
         logo: teamLogoUrl(teams[i].id),
-      } : { id: `name:${name}`, name, short: name.split(' ')[0], logo: null, unresolved: true }));
+      } : localFollowedTeam(name)));
     },
     enabled: favoriteTeams.length > 0,
-    placeholderData: () => favoriteTeams.map(name => ({ id: `name:${name}`, name, short: name.split(' ')[0], logo: null, unresolved: true })),
+    placeholderData: () => favoriteTeams.map(localFollowedTeam),
   });
   const selectedTeam = followedTeams.find(t => t.id === selectedTeamId) || null;
 
