@@ -43,6 +43,21 @@ export async function fetchScoreboard() {
   }
 }
 
+// Scoreboard plus the current week number/label (for the Live Scores header)
+export async function fetchScoreboardWithMeta() {
+  try {
+    const data = await fetchScoreboardJson();
+    return {
+      games: parseGames(data.events || []),
+      week: data.week?.number ?? null,
+      seasonType: data.season?.type ?? null,
+    };
+  } catch (error) {
+    console.error('Error fetching scoreboard:', error);
+    return { games: [], week: null, seasonType: null };
+  }
+}
+
 // Fetch scoreboard for a specific date (YYYYMMDD format)
 export async function fetchScoreboardByDate(date) {
   try {
@@ -229,6 +244,26 @@ function parseGames(events) {
       away_team_id: awayTeam?.team?.id,
       home_short: homeTeam?.team?.shortDisplayName || homeTeam?.team?.location,
       away_short: awayTeam?.team?.shortDisplayName || awayTeam?.team?.location,
+      home_color: homeTeam?.team?.color ? `#${homeTeam.team.color}` : null,
+      away_color: awayTeam?.team?.color ? `#${awayTeam.team.color}` : null,
+      home_linescores: (homeTeam?.linescores || []).map(l => l.value ?? Number(l.displayValue) ?? 0),
+      away_linescores: (awayTeam?.linescores || []).map(l => l.value ?? Number(l.displayValue) ?? 0),
+      conference: competition?.groups?.shortName || null,
+      status_short: competition?.status?.type?.shortDetail || null,
+      is_halftime: competition?.status?.type?.name === 'STATUS_HALFTIME',
+      // Live situation (only during games)
+      down_distance: situation?.downDistanceText || situation?.shortDownDistanceText || null,
+      possession_text: situation?.possessionText || null,
+      possession_team_id: situation?.possession || null,
+      is_red_zone: Boolean(situation?.isRedZone),
+      last_play: situation?.lastPlay?.text || null,
+      home_timeouts: situation?.homeTimeouts ?? null,
+      away_timeouts: situation?.awayTimeouts ?? null,
+      // ESPN live win probability (home team), 0-100
+      home_win_pct: typeof situation?.lastPlay?.probability?.homeWinPercentage === 'number'
+        ? Math.round(situation.lastPlay.probability.homeWinPercentage * 1000) / 10
+        : null,
+      over_under: competition?.odds?.[0]?.overUnder ?? null,
       home_rank: homeTeam?.curatedRank?.current <= 25 ? homeTeam?.curatedRank?.current : null,
       away_rank: awayTeam?.curatedRank?.current <= 25 ? awayTeam?.curatedRank?.current : null,
       home_record: homeTeam?.records?.[0]?.summary,
@@ -983,36 +1018,55 @@ export async function fetchGameSummary(gameId) {
     
     const homeTeam = competition?.competitors?.find(c => c.homeAway === 'home');
     const awayTeam = competition?.competitors?.find(c => c.homeAway === 'away');
-    
+    const side = (t) => ({
+      id: t?.team?.id,
+      name: t?.team?.displayName,
+      short: t?.team?.location || t?.team?.shortDisplayName,
+      abbreviation: t?.team?.abbreviation,
+      logo: t?.team?.logos?.[0]?.href || t?.team?.logo,
+      color: t?.team?.color ? `#${t.team.color}` : null,
+      score: parseInt(t?.score) || 0,
+      rank: t?.rank,
+      record: t?.record?.find(r => r.type === 'total')?.summary || null,
+      linescores: (t?.linescores || []).map(l => Number(l.displayValue ?? l.value) || 0),
+      has_ball: Boolean(t?.possession),
+      winner: Boolean(t?.winner),
+    });
+
+    // ESPN win-probability model, one point per play (home team %), downsampled for charts
+    const wpRaw = (data.winprobability || []).map(p => p.homeWinPercentage).filter(v => typeof v === 'number');
+    const step = Math.max(1, Math.ceil(wpRaw.length / 80));
+    const winProbability = wpRaw.filter((_, i) => i % step === 0 || i === wpRaw.length - 1).map(v => Math.round(v * 1000) / 10);
+    const odds = data.pickcenter?.[0] || data.odds?.[0];
+    const venue = data.gameInfo?.venue || competition?.venue;
+
     return {
       id: header?.id,
       status: competition?.status?.type?.state,
       status_detail: competition?.status?.type?.detail,
+      status_short: competition?.status?.type?.shortDetail,
       period: competition?.status?.period,
       clock: competition?.status?.displayClock,
-      home: {
-        name: homeTeam?.team?.displayName,
-        abbreviation: homeTeam?.team?.abbreviation,
-        logo: homeTeam?.team?.logo,
-        score: parseInt(homeTeam?.score) || 0,
-        rank: homeTeam?.rank,
-      },
-      away: {
-        name: awayTeam?.team?.displayName,
-        abbreviation: awayTeam?.team?.abbreviation,
-        logo: awayTeam?.team?.logo,
-        score: parseInt(awayTeam?.score) || 0,
-        rank: awayTeam?.rank,
-      },
+      date: competition?.date,
+      home: side(homeTeam),
+      away: side(awayTeam),
       situation: situation ? {
         down: situation.down,
         distance: situation.distance,
         possession: situation.possession,
         yard_line: situation.yardLine,
         is_red_zone: situation.isRedZone,
+        down_distance: situation.downDistanceText || situation.shortDownDistanceText || null,
+        possession_text: situation.possessionText || null,
       } : null,
-      venue: competition?.venue?.fullName,
-      broadcasts: competition?.broadcasts?.map(b => b.names?.join(', ')),
+      win_probability: winProbability,
+      home_win_pct: winProbability.length ? winProbability[winProbability.length - 1] : null,
+      odds: odds ? { details: odds.details || null, over_under: odds.overUnder ?? null } : null,
+      venue: venue?.fullName,
+      venue_city: venue?.address ? [venue.address.city, venue.address.state].filter(Boolean).join(', ') : null,
+      venue_image: venue?.images?.[0]?.href || null,
+      attendance: data.gameInfo?.attendance || null,
+      broadcasts: competition?.broadcasts?.map(b => b.media?.shortName || b.names?.join(', ')).filter(Boolean),
     };
   } catch (error) {
     console.error('Error fetching game summary:', error);

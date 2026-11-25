@@ -11,6 +11,8 @@ import LiveGameStats from '@/components/gameday/LiveGameStats';
 import GameAlerts from '@/components/gameday/GameAlerts';
 import { fetchPlayByPlay, fetchLiveGameStats, fetchGameSummary, fetchGameVideos } from '@/lib/sportsApi';
 import VideoHighlights from '@/components/video/VideoHighlights';
+import AppHeader from '@/components/layout/AppHeader';
+import WinProbabilityChart from '@/components/scores/WinProbabilityChart';
 
 export default function LiveGame() {
   const navigate = useNavigate();
@@ -87,138 +89,161 @@ export default function LiveGame() {
     );
   }
 
+  const linescoreCount = Math.max(4, gameSummary?.home?.linescores?.length || 0, gameSummary?.away?.linescores?.length || 0);
+  const periodLabel = (i) => (i < 4 ? `Q${i + 1}` : i === 4 ? 'OT' : `${i - 3}OT`);
+  const isUpcoming = gameSummary && !isLive && !isFinal;
+  const kickoff = gameSummary?.date
+    ? new Date(gameSummary.date).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : null;
+
+  const TeamBlock = ({ team, align }) => (
+    <div className={`flex min-w-0 flex-col gap-1 ${align === 'right' ? 'items-end text-right' : 'items-start'}`}>
+      {team?.logo ? (
+        <img src={team.logo} alt="" className="h-14 w-14 object-contain drop-shadow" />
+      ) : (
+        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-container-high font-display text-lg font-bold">
+          {(team?.abbreviation || '').slice(0, 3)}
+        </span>
+      )}
+      <div className={`flex items-center gap-1.5 ${align === 'right' ? 'flex-row-reverse' : ''}`}>
+        {team?.rank && <span className="rounded bg-surface-container-high px-1 text-[11px] font-bold text-orange-600 dark:text-brand-soft">#{team.rank}</span>}
+        {team?.record && <span className="text-xs text-on-surface-variant tabular-nums">{team.record}</span>}
+      </div>
+      <span className={`flex max-w-full items-center gap-1 font-display text-xl font-bold uppercase leading-[1.05] text-on-surface line-clamp-2 ${align === 'right' ? 'justify-end' : ''}`}>
+        {align === 'right' && team?.has_ball && isLive && <span className="text-sm">🏈</span>}
+        {team?.short || team?.abbreviation}
+        {align !== 'right' && team?.has_ball && isLive && <span className="text-sm">🏈</span>}
+      </span>
+    </div>
+  );
+
   return (
     <div className="gd-page pb-24">
       {/* Game Alerts */}
       <GameAlerts plays={playByPlayData?.plays} gameId={gameId} />
 
-      {/* Header with Live Score */}
-      <div className="bg-gradient-to-br from-ink-900 via-ink-800 to-ink-900 text-white px-4 pt-12 pb-6 sticky top-0 z-10 shadow-lg">
-        <div className="flex items-center justify-between mb-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/20"
-            onClick={() => navigate(createPageUrl('GameDay'))}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="flex items-center gap-2">
-            {isLive && (
-              <>
-                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                <span className="text-sm font-semibold">LIVE</span>
-              </>
-            )}
-            {isFinal && (
-              <span className="text-sm font-semibold bg-ink-700 px-2 py-1 rounded">FINAL</span>
-            )}
-            {!isLive && !isFinal && (
-              <span className="text-sm font-medium opacity-75">{statusDetail || 'Upcoming'}</span>
-            )}
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/20"
-            onClick={handleRefresh}
-          >
-            <RefreshCw className="w-5 h-5" />
-          </Button>
-        </div>
+      <AppHeader
+        back="GameDay"
+        eyebrow={isLive ? 'Live · Gamecast' : isFinal ? 'Final' : 'Matchup'}
+        title={`${awayAbbrev || awayTeam} vs ${homeAbbrev || homeTeam}`}
+        showProfile={false}
+        actions={
+          <button type="button" aria-label="Refresh" onClick={handleRefresh}
+            className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface">
+            <RefreshCw className="h-5 w-5" />
+          </button>
+        }
+      />
 
-        {/* Score Display */}
-        <div className="bg-white/10 backdrop-blur rounded-2xl p-4">
-          <div className="grid grid-cols-3 gap-4 items-center">
-            {/* Away Team */}
-            <div className="text-center">
-              {awayLogo ? (
-                <img 
-                  src={awayLogo} 
-                  alt={awayTeam}
-                  className="w-16 h-16 mx-auto mb-2 object-contain"
-                />
+      <div className="space-y-4 px-4 pt-4">
+        {/* Scoreboard */}
+        <section className={`gd-card relative overflow-hidden p-4 ${isLive ? 'gd-card-glow' : ''}`} aria-label="Scoreboard">
+          <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-brand/15 blur-3xl" />
+          <div className="relative">
+            <div className="mb-3 flex items-center justify-center">
+              {isLive ? (
+                <span className="gd-pill bg-red-600 text-white"><span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                  {gameSummary?.situation?.is_red_zone ? 'Red zone · ' : ''}{gameSummary?.status_short || `Q${period} ${clock}`}
+                </span>
+              ) : isFinal ? (
+                <span className="gd-pill bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-700">{gameSummary?.status_short || 'Final'}</span>
               ) : (
-                <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center text-2xl mb-2">
-                  {(awayAbbrev || awayTeam).substring(0, 2).toUpperCase()}
-                </div>
-              )}
-              <p className="font-semibold text-sm truncate">{awayAbbrev || awayTeam}</p>
-              {gameSummary?.away?.rank && (
-                <span className="text-xs opacity-75">#{gameSummary.away.rank}</span>
-              )}
-              <p className="gd-score text-5xl mt-2">{awayScore}</p>
-            </div>
-
-            {/* Game Info */}
-            <div className="text-center">
-              {isLive && period && clock ? (
-                <>
-                  <p className="text-sm opacity-75 mb-1">Q{period}</p>
-                  <p className="text-lg font-bold">{clock}</p>
-                </>
-              ) : (
-                <p className="text-sm opacity-75">{statusDetail || 'VS'}</p>
-              )}
-              {gameSummary?.situation && isLive && (
-                <div className="mt-2 text-xs opacity-75">
-                  <p>{gameSummary.situation.down}&{gameSummary.situation.distance}</p>
-                  <p>{gameSummary.situation.yard_line} yard line</p>
-                </div>
+                <span className="gd-pill bg-surface-container-high text-on-surface">{kickoff || statusDetail || 'Upcoming'}</span>
               )}
             </div>
-
-            {/* Home Team */}
-            <div className="text-center">
-              {homeLogo ? (
-                <img 
-                  src={homeLogo} 
-                  alt={homeTeam}
-                  className="w-16 h-16 mx-auto mb-2 object-contain"
-                />
-              ) : (
-                <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-orange-400 to-red-600 flex items-center justify-center text-2xl mb-2">
-                  {(homeAbbrev || homeTeam).substring(0, 2).toUpperCase()}
-                </div>
-              )}
-              <p className="font-semibold text-sm truncate">{homeAbbrev || homeTeam}</p>
-              {gameSummary?.home?.rank && (
-                <span className="text-xs opacity-75">#{gameSummary.home.rank}</span>
-              )}
-              <p className="gd-score text-5xl mt-2">{homeScore}</p>
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+              <TeamBlock team={gameSummary?.away || { short: awayTeam }} align="left" />
+              <div className="px-1 text-center">
+                {isUpcoming ? (
+                  <span className="font-display text-4xl font-extrabold text-slate-300 dark:text-slate-400">VS</span>
+                ) : (
+                  <div className="gd-score flex items-baseline gap-1.5 text-5xl text-on-surface">
+                    <span className={isFinal && awayScore < homeScore ? 'text-slate-400' : ''}>{awayScore}</span>
+                    <span className="text-2xl text-slate-400">–</span>
+                    <span className={isFinal && homeScore < awayScore ? 'text-slate-400' : ''}>{homeScore}</span>
+                  </div>
+                )}
+                {isLive && gameSummary?.situation?.down_distance && (
+                  <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">{gameSummary.situation.down_distance}</p>
+                )}
+              </div>
+              <TeamBlock team={gameSummary?.home || { short: homeTeam }} align="right" />
             </div>
-          </div>
-        </div>
 
-        {/* Venue & Broadcast Info */}
-        {(gameSummary?.venue || gameSummary?.broadcasts) && (
-          <div className="flex items-center justify-center gap-4 mt-3 text-xs opacity-75">
-            {gameSummary.venue && (
-              <span>📍 {gameSummary.venue}</span>
+            {isLive && gameSummary?.situation?.possession_text && (
+              <p className="mt-3 text-center text-xs font-bold uppercase tracking-wide text-orange-600 dark:text-brand-soft">
+                🏈 Ball on {gameSummary.situation.possession_text}
+              </p>
             )}
-            {gameSummary.broadcasts?.[0] && (
-              <span className="flex items-center gap-1">
-                <Radio className="w-3 h-3" />
-                {gameSummary.broadcasts[0]}
-              </span>
+
+            {/* Line score */}
+            {!isUpcoming && (gameSummary?.home?.linescores?.length > 0) && (
+              <table className="mt-4 w-full text-sm tabular-nums">
+                <thead>
+                  <tr className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+                    <th className="py-1 text-left font-bold">Team</th>
+                    {Array.from({ length: linescoreCount }).map((_, i) => <th key={i} className="w-9 py-1 text-center font-bold">{periodLabel(i)}</th>)}
+                    <th className="w-10 py-1 text-right font-bold text-on-surface">T</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[gameSummary.away, gameSummary.home].map((t) => (
+                    <tr key={t.abbreviation} className="border-t border-outline-variant/60 dark:border-white/[0.06]">
+                      <td className="py-1.5 font-display text-base font-bold uppercase text-on-surface">{t.abbreviation}</td>
+                      {Array.from({ length: linescoreCount }).map((_, i) => (
+                        <td key={i} className="py-1.5 text-center text-on-surface-variant">{t.linescores[i] ?? '–'}</td>
+                      ))}
+                      <td className="py-1.5 text-right font-display text-lg font-extrabold text-on-surface">{t.score}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
+        </section>
+
+        {/* Venue strip with stadium photo */}
+        {gameSummary?.venue && (
+          <section className="gd-card relative overflow-hidden">
+            {gameSummary.venue_image && (
+              <img src={gameSummary.venue_image} alt="" className="absolute inset-0 h-full w-full object-cover opacity-40" loading="lazy" />
+            )}
+            <div className="relative flex items-center gap-3 bg-gradient-to-r from-ink-900/90 via-ink-900/70 to-ink-900/30 p-4 text-white">
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-display text-lg font-bold uppercase">{gameSummary.venue}</p>
+                <p className="truncate text-xs text-white/75">
+                  {[gameSummary.venue_city, gameSummary.attendance ? `${gameSummary.attendance.toLocaleString()} fans` : null].filter(Boolean).join(' · ')}
+                </p>
+              </div>
+              <div className="shrink-0 text-right text-xs">
+                {gameSummary.broadcasts?.[0] && (
+                  <p className="flex items-center justify-end gap-1 font-bold"><Radio className="h-3 w-3" />{gameSummary.broadcasts[0]}</p>
+                )}
+                {gameSummary.odds?.details && <p className="mt-0.5 text-white/80">{gameSummary.odds.details}{gameSummary.odds.over_under ? ` · O/U ${gameSummary.odds.over_under}` : ''}</p>}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Win probability over the game */}
+        {gameSummary?.win_probability?.length > 1 && (
+          <WinProbabilityChart points={gameSummary.win_probability} home={gameSummary.home} away={gameSummary.away} live={isLive} />
         )}
       </div>
 
       {/* Content Tabs */}
       <div className="px-4 py-4">
         <Tabs defaultValue="plays" className="w-full">
-          <TabsList className="w-full grid grid-cols-3 mb-4 bg-slate-100 p-1 rounded-xl">
-            <TabsTrigger value="plays" className="rounded-lg data-[state=active]:bg-surface-container data-[state=active]:shadow-sm">
+          <TabsList className="mb-4 grid h-auto w-full grid-cols-3 gap-1 rounded-xl bg-surface-container-high p-1 dark:bg-surface-container">
+            <TabsTrigger value="plays" className="rounded-lg py-2 font-semibold data-[state=active]:bg-surface-container data-[state=active]:text-on-surface data-[state=active]:shadow-sm dark:data-[state=active]:bg-surface-container-highest">
               <Activity className="w-4 h-4 mr-2" />
               Play-by-Play
             </TabsTrigger>
-            <TabsTrigger value="stats" className="rounded-lg data-[state=active]:bg-surface-container data-[state=active]:shadow-sm">
+            <TabsTrigger value="stats" className="rounded-lg py-2 font-semibold data-[state=active]:bg-surface-container data-[state=active]:text-on-surface data-[state=active]:shadow-sm dark:data-[state=active]:bg-surface-container-highest">
               <BarChart3 className="w-4 h-4 mr-2" />
               Stats
             </TabsTrigger>
-            <TabsTrigger value="highlights" className="rounded-lg data-[state=active]:bg-surface-container data-[state=active]:shadow-sm">
+            <TabsTrigger value="highlights" className="rounded-lg py-2 font-semibold data-[state=active]:bg-surface-container data-[state=active]:text-on-surface data-[state=active]:shadow-sm dark:data-[state=active]:bg-surface-container-highest">
               <Film className="w-4 h-4 mr-1.5" />
               Highlights
               {videos.length > 0 && (
