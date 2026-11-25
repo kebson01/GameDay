@@ -5,7 +5,6 @@ import { client } from '@/api/client';
 import { auth } from '@/lib/auth';
 import { getCurrentSeason, fetchRankings } from '@/lib/sportsApi';
 import AppHeader from '@/components/layout/AppHeader';
-import SafetyButton from '@/components/common/SafetyButton';
 import { Skeleton } from '@/components/common/LoadingSkeleton';
 import StandingsTable from '@/components/feed-v2/StandingsTable';
 import { sortStandings } from '@/lib/feedData';
@@ -160,7 +159,6 @@ export default function Standings() {
         )}
       </main>
 
-      <SafetyButton />
     </div>
   );
 }

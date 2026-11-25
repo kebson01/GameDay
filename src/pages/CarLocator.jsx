@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import AppHeader from '@/components/layout/AppHeader';
 import AuthModal from '@/components/auth/AuthModal';
-import SafetyButton from '@/components/common/SafetyButton';
 import { Skeleton } from '@/components/common/LoadingSkeleton';
 import { SignInCard, EmptyCard, Field } from '@/components/crew-v2/ui';
 import { distanceMiles, distanceParts, walkMinutes, agoLabel } from '@/components/crew-v2/geo';
@@ -389,7 +388,6 @@ export default function CarLocator() {
         )}
       </main>
 
-      <SafetyButton />
     </div>
   );
 }

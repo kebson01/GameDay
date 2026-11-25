@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, User } from 'lucide-react';
+import { ArrowLeft, User } from 'lucide-react';
+import SafetyButton from '@/components/common/SafetyButton';
 import { auth } from '@/lib/auth';
 import { createPageUrl } from '@/utils';
 import { cn } from '@/lib/utils';
@@ -8,7 +9,7 @@ import { cn } from '@/lib/utils';
 /**
  * Shared screen header (Stitch "Tailgate Companion" style): orange logo tile
  * or back button, small orange eyebrow label, condensed uppercase title,
- * optional extra actions, notifications bell and profile avatar.
+ * optional extra actions, the safety/SOS shield and profile avatar.
  * Glass surface in both themes; sticks to the top while scrolling.
  */
 export default function AppHeader({
@@ -79,14 +80,7 @@ export default function AppHeader({
 
         <div className="flex shrink-0 items-center gap-1">
           {actions}
-          <button
-            type="button"
-            aria-label="Notifications"
-            className="relative flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface"
-          >
-            <Bell className="h-5 w-5" />
-            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-brand" />
-          </button>
+          <SafetyButton variant="header" />
           {showProfile && (
             <button
               type="button"

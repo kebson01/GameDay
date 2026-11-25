@@ -135,6 +135,7 @@ export default function TailgateDetail() {
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div className="flex gap-2">
+            <SafetyButton variant="overlay" />
             {isHost && (
               <button aria-label="Edit tailgate" onClick={() => navigate(createPageUrl('CreateTailgate') + `?edit=${tailgateId}`)}
                 className="flex h-10 w-10 items-center justify-center rounded-xl bg-black/45 text-white backdrop-blur">
@@ -329,7 +330,6 @@ export default function TailgateDetail() {
       </main>
 
       <LoginPrompt open={showLoginPrompt} onOpenChange={setShowLoginPrompt} feature="RSVPs" onSuccess={setUser} />
-      <SafetyButton />
     </div>
   );
 }

@@ -11,7 +11,6 @@ import AppHeader from '@/components/layout/AppHeader';
 import TailgateListCard from '@/components/tailgates/TailgateListCard';
 import { TAILGATE_TYPES, isPastTailgate, tailgateDayLabel } from '@/components/tailgates/tailgateUtils';
 import MapView, { tailgateIcon } from '@/components/map/MapView';
-import SafetyButton from '@/components/common/SafetyButton';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 import { Skeleton } from '@/components/common/LoadingSkeleton';
 
@@ -198,7 +197,6 @@ export default function TailgateDirectory() {
       </main>
 
       <LoginPrompt open={showLoginPrompt} onOpenChange={setShowLoginPrompt} feature="tailgates" onSuccess={setUser} />
-      <SafetyButton />
     </div>
   );
 }

@@ -9,7 +9,6 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import AppHeader from '@/components/layout/AppHeader';
-import SafetyButton from '@/components/common/SafetyButton';
 import GameDayAssistant from '@/components/ai/GameDayAssistant';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 import { GdSwitch, Field } from '@/components/crew-v2/ui';
@@ -417,7 +416,6 @@ export default function CreateTailgate() {
         feature="creating tailgates"
       />
 
-      <SafetyButton />
     </div>
   );
 }

@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import GoogleMapView, { markerIcons } from '@/components/map/GoogleMapView';
-import SafetyButton from '@/components/common/SafetyButton';
 import { distanceMiles, distanceParts, walkMinutes } from '@/components/crew-v2/geo';
 import { openNavigation, getCurrentLocation as getDeviceLocation } from '@/lib/navigation';
 
@@ -345,7 +344,6 @@ export default function CampusMap() {
         </section>
       </main>
 
-      <SafetyButton />
     </div>
   );
 }

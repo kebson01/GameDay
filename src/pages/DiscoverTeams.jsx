@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { getGuestTeams, saveFavoriteTeams, mergeGuestTeams } from '@/lib/favorites';
 import { useNavigate } from 'react-router-dom';
 import { client } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -6,7 +7,6 @@ import { createPageUrl } from '@/utils';
 import { Search, Star, X, SlidersHorizontal, GraduationCap } from 'lucide-react';
 import { toast } from 'sonner';
 import AppHeader from '@/components/layout/AppHeader';
-import SafetyButton from '@/components/common/SafetyButton';
 import { Skeleton } from '@/components/common/LoadingSkeleton';
 import DiscoverTeamCard from '@/components/teams-v2/DiscoverTeamCard';
 import { fetchRankings, teamLogoUrl } from '@/lib/sportsApi';
@@ -30,7 +30,8 @@ export default function DiscoverTeams() {
     client.auth.me().then(setUser).catch(() => {});
   }, []);
 
-  const favoriteTeams = user?.favorite_teams || [];
+  const [guestTeams, setGuestTeams] = useState(getGuestTeams);
+  const favoriteTeams = user ? (user.favorite_teams || []) : guestTeams;
 
   const { data: schools = [] } = useQuery({
     queryKey: ['schools'],
@@ -122,9 +123,10 @@ export default function DiscoverTeams() {
         ? favoriteTeams.filter(t => t !== team.name)
         : [...favoriteTeams, team.name];
 
-      await client.auth.updateMe({ favorite_teams: newFavorites });
+      await saveFavoriteTeams(user, newFavorites);
+      if (!user) return { isFollowing, teamName: team.name, newFavorites };
 
-      // Update follower count
+      // Update follower count (signed-in fans only)
       const follower_count = Math.max((team.follower_count || 0) + (isFollowing ? -1 : 1), 0);
       if (team.local_id || !String(team.id).startsWith('espn-')) {
         await client.entities.School.update(team.local_id || team.id, { follower_count });
@@ -135,21 +137,17 @@ export default function DiscoverTeams() {
       return { isFollowing, teamName: team.name, newFavorites };
     },
     onSuccess: (data) => {
-      setUser(prev => ({ ...prev, favorite_teams: data.newFavorites }));
+      if (user) setUser(prev => ({ ...prev, favorite_teams: data.newFavorites }));
+      else setGuestTeams(data.newFavorites);
       queryClient.invalidateQueries(['user']);
       queryClient.invalidateQueries(['schools']);
-      client.auth.me().then(setUser).catch(() => {});
+      if (user) client.auth.me().then(setUser).catch(() => {});
       toast.success(data.isFollowing ? `Unfollowed ${data.teamName}` : `Following ${data.teamName}! 🎉`);
     },
     onError: () => toast.error('Could not update your teams'),
   });
 
   const toggleFollow = (team) => {
-    if (!user) {
-      toast.error('Please log in to follow teams');
-      client.auth.redirectToLogin();
-      return;
-    }
     followMutation.mutate(team);
   };
 
@@ -162,7 +160,7 @@ export default function DiscoverTeams() {
         eyebrow="Find your program"
         title="Discover Teams"
         back
-        actions={user && favoriteTeams.length > 0 ? (
+        actions={favoriteTeams.length > 0 ? (
           <button
             type="button"
             onClick={() => navigate(createPageUrl('MyTeams'))}
@@ -279,7 +277,6 @@ export default function DiscoverTeams() {
         </div>
       </main>
 
-      <SafetyButton />
     </div>
   );
 }

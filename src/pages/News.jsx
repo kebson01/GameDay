@@ -6,7 +6,6 @@ import { fetchNews, fetchRankings } from '@/lib/sportsApi';
 import { createPageUrl } from '@/utils';
 import AppHeader from '@/components/layout/AppHeader';
 import VideoStorySheet from '@/components/video/VideoStorySheet';
-import SafetyButton from '@/components/common/SafetyButton';
 import { Skeleton } from '@/components/common/LoadingSkeleton';
 import { LeadStory, StoryRow } from '@/components/feed-v2/NewsStory';
 
@@ -210,7 +209,6 @@ export default function News() {
         onOpenChange={(open) => !open && setSelectedVideo(null)}
       />
 
-      <SafetyButton />
     </div>
   );
 }

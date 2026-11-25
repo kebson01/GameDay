@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { getGuestTeams, saveFavoriteTeams, mergeGuestTeams } from '@/lib/favorites';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '@/lib/auth';
 import {
@@ -10,7 +11,6 @@ import { Star, Plus, Search, Compass, Calendar, Film, Newspaper, Radio, Trophy }
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import SafetyButton from '@/components/common/SafetyButton';
 import AppHeader from '@/components/layout/AppHeader';
 import FeaturedGame from '@/components/scores/FeaturedGame';
 import ScoreCard from '@/components/scores/ScoreCard';
@@ -45,6 +45,7 @@ export default function MyTeams() {
 
   useEffect(() => {
     auth.me()
+      .then(mergeGuestTeams)
       .then(u => {
         setUser(u);
         setIsLoading(false);
@@ -55,7 +56,13 @@ export default function MyTeams() {
       });
   }, []);
 
-  const favoriteTeams = user?.favorite_teams || [];
+  const [guestTeams, setGuestTeams] = useState(getGuestTeams);
+  const favoriteTeams = user ? (user.favorite_teams || []) : guestTeams;
+  const applyFavorites = (next) => {
+    if (user) setUser(prev => ({ ...prev, favorite_teams: next }));
+    else setGuestTeams(next);
+    saveFavoriteTeams(user, next).catch(() => toast.error('Could not update your teams'));
+  };
 
   // ESPN identity for each followed team (id, colors, logo)
   const { data: resolved = {}, isLoading: resolving } = useQuery({
@@ -153,9 +160,7 @@ export default function MyTeams() {
       toast.error('Team already in favorites');
       return;
     }
-    const newFavorites = [...favoriteTeams, teamName.trim()];
-    auth.updateMe({ favorite_teams: newFavorites });
-    setUser(prev => ({ ...prev, favorite_teams: newFavorites }));
+    applyFavorites([...favoriteTeams, teamName.trim()]);
     toast.success('Team added to favorites!');
     setShowAddDialog(false);
     setNewTeam('');
@@ -164,20 +169,13 @@ export default function MyTeams() {
   };
 
   const removeTeam = (teamName) => {
-    const newFavorites = favoriteTeams.filter(t => t !== teamName);
-    auth.updateMe({ favorite_teams: newFavorites });
-    setUser(prev => ({ ...prev, favorite_teams: newFavorites }));
+    applyFavorites(favoriteTeams.filter(t => t !== teamName));
     toast.success('Team unfollowed');
   };
 
   const openGame = (g) => navigate(createPageUrl('LiveGame') + liveGameQuery(g));
   const openTeam = (name) => navigate(createPageUrl('TeamPage') + `?team=${encodeURIComponent(name)}`);
   const openAdd = () => {
-    if (!user) {
-      toast.error('Sign in to follow teams');
-      navigate(createPageUrl('UserProfile'));
-      return;
-    }
     setShowAddDialog(true);
   };
 
@@ -199,7 +197,7 @@ export default function MyTeams() {
   }
 
   // Allow viewing even if not logged in
-  const displayTeams = user ? favoriteTeams : [];
+  const displayTeams = favoriteTeams;
   const [featuredLive, ...otherLive] = liveGames;
 
   return (
@@ -226,7 +224,7 @@ export default function MyTeams() {
             <div>
               <p className="gd-eyebrow">Program tracking</p>
               <h2 id="followed-teams" className="font-display text-2xl font-bold uppercase leading-tight text-on-surface">
-                Following {user && <span className="text-orange-600 dark:text-brand-soft">{displayTeams.length}</span>}
+                Following {displayTeams.length > 0 && <span className="text-orange-600 dark:text-brand-soft">{displayTeams.length}</span>}
               </h2>
             </div>
             <button
@@ -273,11 +271,11 @@ export default function MyTeams() {
           ) : !user ? (
             <div className="gd-card px-6 py-10 text-center">
               <Star className="mx-auto mb-3 h-10 w-10 text-amber-500" />
-              <p className="font-display text-xl font-bold uppercase text-on-surface">Sign in to follow teams</p>
-              <p className="mt-1 text-sm text-on-surface-variant">Get live scores, schedules and news for your programs.</p>
+              <p className="font-display text-xl font-bold uppercase text-on-surface">Follow your teams</p>
+              <p className="mt-1 text-sm text-on-surface-variant">Get live scores, schedules and news for your programs. Teams you follow are saved on this phone; sign in to keep them on every device.</p>
               <div className="mt-4 flex justify-center gap-2">
-                <button type="button" className="gd-btn-primary h-11 rounded-xl px-5" onClick={() => navigate(createPageUrl('UserProfile'))}>
-                  Sign In
+                <button type="button" className="gd-btn-primary h-11 rounded-xl px-5" onClick={() => setShowAddDialog(true)}>
+                  Add a team
                 </button>
                 <button
                   type="button"
@@ -538,7 +536,6 @@ export default function MyTeams() {
         </SheetContent>
       </Sheet>
 
-      <SafetyButton />
     </div>
   );
 }

@@ -12,7 +12,6 @@ import { createPageUrl } from '@/utils';
 import AppHeader from '@/components/layout/AppHeader';
 import ScoreCard from '@/components/scores/ScoreCard';
 import FeaturedGame from '@/components/scores/FeaturedGame';
-import SafetyButton from '@/components/common/SafetyButton';
 import { Skeleton } from '@/components/common/LoadingSkeleton';
 import { toast } from 'sonner';
 
@@ -300,7 +299,6 @@ export default function GameDay() {
         )}
       </main>
 
-      <SafetyButton />
     </div>
   );
 }

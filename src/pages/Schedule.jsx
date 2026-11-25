@@ -15,7 +15,6 @@ import {
   Search, X, Star, RefreshCw, Flame,
 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
-import SafetyButton from '@/components/common/SafetyButton';
 import { Skeleton } from '@/components/common/LoadingSkeleton';
 import TeamDetailView, { ArticleView } from '@/components/teams/TeamDetailView';
 import ScheduleGameCard from '@/components/feed-v2/ScheduleGameCard';
@@ -628,7 +627,6 @@ export default function Schedule() {
         )}
       </main>
 
-      <SafetyButton />
 
       {/* Team Detail View */}
       <TeamDetailView

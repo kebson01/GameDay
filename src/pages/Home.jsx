@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getGuestTeams, mergeGuestTeams } from '@/lib/favorites';
 import { TailgateIcon } from '@/components/icons/GameDayIcons';
 import { useNavigate } from 'react-router-dom';
 import { client } from '@/api/client';
@@ -17,7 +18,6 @@ import GameCard from '@/components/common/GameCard';
 import QuickAction from '@/components/common/QuickAction';
 import TailgateCard from '@/components/common/TailgateCard';
 import FriendCard from '@/components/common/FriendCard';
-import SafetyButton from '@/components/common/SafetyButton';
 import GameDayAssistant from '@/components/ai/GameDayAssistant';
 import AuthModal from '@/components/auth/AuthModal';
 import TeamDetailView, { ArticleView } from '@/components/teams/TeamDetailView';
@@ -52,6 +52,7 @@ export default function Home() {
   
   useEffect(() => {
     client.auth.me()
+      .then(mergeGuestTeams)
       .then(setUser)
       .catch(() => {})
       .finally(() => setUserLoading(false));
@@ -73,6 +74,7 @@ export default function Home() {
   
   const handleAuthSuccess = (loggedInUser) => {
     setUser(loggedInUser);
+    mergeGuestTeams(loggedInUser).then(setUser);
   };
   
   // Fetch live/upcoming games from ESPN
@@ -112,7 +114,7 @@ export default function Home() {
   });
   
   // Followed teams for the top row (names in the profile -> ESPN ids + logos)
-  const favoriteTeams = user?.favorite_teams || [];
+  const favoriteTeams = user ? (user.favorite_teams || []) : (userLoading ? [] : getGuestTeams());
   const { data: followedTeams = [] } = useQuery({
     queryKey: ['followed-teams', favoriteTeams.join('|')],
     queryFn: async () => {
@@ -472,7 +474,6 @@ export default function Home() {
       </div>
       
       {/* Safety Button */}
-      <SafetyButton />
       
       {/* AI Assistant */}
       <GameDayAssistant />

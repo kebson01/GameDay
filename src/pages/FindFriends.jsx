@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import GoogleMapView, { markerIcons } from '@/components/map/GoogleMapView';
-import SafetyButton from '@/components/common/SafetyButton';
 import InviteContacts from '@/components/friends/InviteContacts';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 import AppHeader from '@/components/layout/AppHeader';
@@ -563,7 +562,6 @@ export default function FindFriends() {
         feature="friend tracking and location sharing"
       />
 
-      <SafetyButton />
     </div>
   );
 }

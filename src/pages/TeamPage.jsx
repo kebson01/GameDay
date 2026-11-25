@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { getGuestTeams, saveFavoriteTeams, mergeGuestTeams } from '@/lib/favorites';
 import { useNavigate } from 'react-router-dom';
 import { client } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,7 +14,6 @@ import HistoricalPerformance from '@/components/teams/HistoricalPerformance';
 import HeadToHeadDisplay from '@/components/teams/HeadToHeadDisplay';
 import PredictionWidget from '@/components/teams/PredictionWidget';
 import VideoHighlights from '@/components/video/VideoHighlights';
-import SafetyButton from '@/components/common/SafetyButton';
 import { Skeleton } from '@/components/common/LoadingSkeleton';
 import TeamHero from '@/components/teams-v2/TeamHero';
 import ScheduleRow from '@/components/teams-v2/ScheduleRow';
@@ -177,7 +177,8 @@ export default function TeamPage() {
   });
 
   // Follow / unfollow (favorites are stored by team name on the profile)
-  const favorites = user?.favorite_teams || [];
+  const [guestTeams, setGuestTeams] = useState(getGuestTeams);
+  const favorites = user ? (user.favorite_teams || []) : guestTeams;
   const identity = { name: fullName, location: espnTeam?.location, short: espnTeam?.short };
   const isFollowing = favorites.some(f => f === teamName || isSameTeam(f, identity));
   const followMutation = useMutation({
@@ -185,22 +186,17 @@ export default function TeamPage() {
       const next = isFollowing
         ? favorites.filter(f => !(f === teamName || isSameTeam(f, identity)))
         : [...favorites, fullName];
-      await client.auth.updateMe({ favorite_teams: next });
-      return next;
+      return saveFavoriteTeams(user, next);
     },
     onSuccess: (next) => {
-      setUser(prev => ({ ...prev, favorite_teams: next }));
+      if (user) setUser(prev => ({ ...prev, favorite_teams: next }));
+      else setGuestTeams(next);
       queryClient.invalidateQueries(['user']);
       toast.success(isFollowing ? `Unfollowed ${fullName}` : `Following ${fullName}`);
     },
     onError: () => toast.error('Could not update your teams'),
   });
   const toggleFollow = () => {
-    if (!user) {
-      toast.error('Sign in to follow teams');
-      client.auth.redirectToLogin();
-      return;
-    }
     followMutation.mutate();
   };
 
@@ -437,7 +433,6 @@ export default function TeamPage() {
         </div>
       </main>
 
-      <SafetyButton />
     </div>
   );
 }

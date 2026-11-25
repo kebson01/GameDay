@@ -5,6 +5,7 @@ import { HomeIcon, LiveIcon, TailgateIcon, TeamsIcon, FriendsIcon } from '@/comp
 import { cn } from '@/lib/utils';
 import { Toaster } from 'sonner';
 import { auth } from '@/lib/auth';
+import { mergeGuestTeams } from '@/lib/favorites';
 import OfflineIndicator from '@/components/common/OfflineIndicator';
 import AuthModal from '@/components/auth/AuthModal';
 import { useTheme } from '@/lib/theme';
@@ -17,7 +18,7 @@ export default function Layout({ children, currentPageName }) {
   const { resolvedTheme } = useTheme();
 
   useEffect(() => {
-    auth.me().then(setUser).catch(() => setUser(null));
+    auth.me().then(mergeGuestTeams).then(setUser).catch(() => setUser(null));
   }, [location.pathname]);
 
   // auth.redirectToLogin() dispatches this event. Home renders its own modal,
@@ -74,9 +75,9 @@ export default function Layout({ children, currentPageName }) {
       {showNav && (
         <nav
           aria-label="Main"
-          className="fixed bottom-0 left-0 right-0 z-50 safe-area-pb bg-surface-container/95 backdrop-blur-xl border-t border-outline-variant shadow-[0_-4px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_16px_rgba(0,0,0,0.35)]"
+          className="fixed bottom-0 left-0 right-0 z-50 safe-area-pb bg-surface-container backdrop-blur-xl border-t border-outline-variant dark:border-white/10 shadow-[0_-6px_20px_rgba(0,0,0,0.10)] dark:shadow-[0_-6px_20px_rgba(0,0,0,0.5)]"
         >
-          <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
+          <div className="flex items-center justify-around h-[68px] max-w-lg mx-auto px-1">
             {navItems.map(({ name, icon: Icon, page, also }) => {
               const isActive = currentPageName === page || also.includes(currentPageName);
               return (
@@ -90,15 +91,15 @@ export default function Layout({ children, currentPageName }) {
                     className={cn(
                       "flex h-8 w-12 items-center justify-center rounded-full transition-all duration-200",
                       isActive
-                        ? "bg-brand/15 text-on-surface ring-1 ring-brand/40 scale-105"
-                        : "text-on-surface-variant opacity-85 group-hover:opacity-100"
+                        ? "bg-brand/20 text-on-surface ring-1 ring-brand/50"
+                        : "text-on-surface"
                     )}
                   >
                     <Icon className="h-6 w-6" strokeWidth={isActive ? 2 : 1.8} />
                   </span>
                   <span className={cn(
-                    "mt-0.5 text-[11px] font-semibold",
-                    isActive ? "text-orange-600 dark:text-brand-soft" : "text-on-surface-variant"
+                    "mt-1 text-xs font-bold tracking-wide",
+                    isActive ? "text-orange-600 dark:text-brand-soft" : "text-on-surface/80"
                   )}>
                     {name}
                   </span>

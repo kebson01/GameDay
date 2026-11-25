@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Phone, MapPin, Users, X } from 'lucide-react';
+import { AlertTriangle, Phone, MapPin, Users, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-export default function SafetyButton({ onSOS, onCheckIn, className }) {
+/**
+ * Safety tools (Call 911, SOS, I'm Lost, Need Ride, Check In).
+ * variant="header": compact red shield button for the top-right of a screen
+ * header, away from the thumb zone so it isn't tapped by accident.
+ * variant="overlay": same, styled for dark photo headers.
+ * The old floating "SOS" bubble is retired: without a variant this renders
+ * nothing, so leftover <SafetyButton /> usages are harmless.
+ */
+export default function SafetyButton({ onSOS, onCheckIn, className, variant }) {
   const [isOpen, setIsOpen] = useState(false);
   const [alertType, setAlertType] = useState(null);
   const [message, setMessage] = useState('');
@@ -84,17 +92,24 @@ export default function SafetyButton({ onSOS, onCheckIn, className }) {
   
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        aria-label="SOS safety options"
-        className={cn(
-          "fixed bottom-24 right-4 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 text-white ring-4 ring-red-500/25 shadow-[0_0_20px_-2px_rgba(239,68,68,0.6)] flex items-center justify-center hover:scale-110 transition-transform active:scale-95",
-          className
-        )}
-      >
-        <span className="font-display text-lg font-extrabold tracking-wider">SOS</span>
-      </button>
-      
+      {variant && (
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          aria-label="Safety tools and SOS"
+          title="Safety & SOS"
+          className={cn(
+            'flex h-10 w-10 items-center justify-center rounded-full transition-colors',
+            variant === 'overlay'
+              ? 'rounded-xl bg-black/45 text-red-300 backdrop-blur hover:text-red-200'
+              : 'text-red-600 hover:bg-red-500/10 dark:text-red-400',
+            className
+          )}
+        >
+          <ShieldAlert className="h-[22px] w-[22px]" strokeWidth={2.2} />
+        </button>
+      )}
+
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
