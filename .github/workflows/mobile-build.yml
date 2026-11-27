@@ -1,0 +1,226 @@
+# Builds the GameDay phone apps from the one shared codebase:
+#   Android (Linux runner): signed release .apk + .aab when the keystore secrets exist, otherwise a debug .apk
+#   iOS (Mac runner):       signed .ipa when the Apple signing secrets exist, otherwise a simulator build
+# Download the results from the run's "Artifacts" section. Setup: docs/mobile-ci.md
+name: Mobile builds
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  android:
+    name: Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HAS_SIGNING: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      VERSION_CODE: ${{ github.run_number }}
+      VERSION_NAME: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Build web app
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy web app into Android project
+        run: npx cap sync android
+
+      - name: Decode signing key
+        if: env.HAS_SIGNING == 'true'
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Build signed release (.apk + .aab)
+        if: env.HAS_SIGNING == 'true'
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease bundleRelease --no-daemon
+          mkdir -p ../out
+          cp app/build/outputs/apk/release/app-release.apk "../out/GameDay-${VERSION_NAME}.apk"
+          cp app/build/outputs/bundle/release/app-release.aab "../out/GameDay-${VERSION_NAME}.aab"
+
+      - name: Build debug .apk (no signing secrets)
+        if: env.HAS_SIGNING != 'true'
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          mkdir -p ../out
+          cp app/build/outputs/apk/debug/app-debug.apk "../out/GameDay-${VERSION_NAME}-debug.apk"
+
+      - name: Remove signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GameDay-android-${{ env.VERSION_NAME }}
+          path: out/*
+          if-no-files-found: error
+
+  ios:
+    name: iOS
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      HAS_SIGNING: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 != '' && secrets.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
+      HAS_TESTFLIGHT: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 != '' }}
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Build web app
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy web app into iOS project (runs pod install)
+        run: |
+          pod --version || sudo gem install cocoapods
+          npx cap sync ios
+
+      # ---- Unsigned: simulator build (proves the app compiles) ----
+      - name: Build for iOS Simulator (no signing secrets)
+        if: env.HAS_SIGNING != 'true'
+        run: |
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App \
+            -configuration Release -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION="$BUILD_NUMBER" build
+          mkdir -p out
+          (cd "$RUNNER_TEMP/dd/Build/Products/Release-iphonesimulator" && zip -qry "$GITHUB_WORKSPACE/out/GameDay-simulator.app.zip" App.app)
+
+      # ---- Signed: archive + export .ipa ----
+      - name: Install certificate and provisioning profile
+        if: env.HAS_SIGNING == 'true'
+        env:
+          P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+
+          PROFILE="$RUNNER_TEMP/profile.mobileprovision"
+          echo "$PROFILE_BASE64" | base64 --decode > "$PROFILE"
+          security cms -D -i "$PROFILE" > "$RUNNER_TEMP/profile.plist"
+          PB=/usr/libexec/PlistBuddy
+          UUID=$($PB -c 'Print :UUID' "$RUNNER_TEMP/profile.plist")
+          NAME=$($PB -c 'Print :Name' "$RUNNER_TEMP/profile.plist")
+          TEAM=$($PB -c 'Print :TeamIdentifier:0' "$RUNNER_TEMP/profile.plist")
+          # Export method follows the profile type
+          if [ "$($PB -c 'Print :Entitlements:get-task-allow' "$RUNNER_TEMP/profile.plist" 2>/dev/null)" = "true" ]; then
+            METHOD=development; IDENTITY="Apple Development"
+          elif $PB -c 'Print :ProvisionedDevices' "$RUNNER_TEMP/profile.plist" >/dev/null 2>&1; then
+            METHOD=ad-hoc; IDENTITY="Apple Distribution"
+          else
+            METHOD=app-store; IDENTITY="Apple Distribution"
+          fi
+          for dir in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$dir" && cp "$PROFILE" "$dir/$UUID.mobileprovision"
+          done
+          {
+            echo "PROFILE_NAME=$NAME"
+            echo "TEAM_ID=$TEAM"
+            echo "EXPORT_METHOD=$METHOD"
+            echo "SIGN_IDENTITY=$IDENTITY"
+            echo "KEYCHAIN=$KEYCHAIN"
+          } >> "$GITHUB_ENV"
+          echo "Signing with profile '$NAME' (team $TEAM, method $METHOD)"
+
+      - name: Archive and export .ipa
+        if: env.HAS_SIGNING == 'true'
+        run: |
+          # Manual signing for the App target only (Pods stay unsigned)
+          sed -i '' "s/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual; DEVELOPMENT_TEAM = $TEAM_ID; PROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\"; CODE_SIGN_IDENTITY = \"$SIGN_IDENTITY\";/" \
+            ios/App/App.xcodeproj/project.pbxproj
+
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/GameDay.xcarchive" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" archive
+
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>$EXPORT_METHOD</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict><key>com.gameday.app</key><string>$PROFILE_NAME</string></dict>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/GameDay.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export"
+          mkdir -p out
+          cp "$RUNNER_TEMP"/export/*.ipa "out/GameDay-1.0.$BUILD_NUMBER.ipa"
+
+      - name: Upload to TestFlight
+        if: env.HAS_SIGNING == 'true' && env.HAS_TESTFLIGHT == 'true' && env.EXPORT_METHOD == 'app-store'
+        env:
+          API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$API_KEY_BASE64" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_$API_KEY_ID.p8
+          xcrun altool --upload-app -t ios -f out/*.ipa --apiKey "$API_KEY_ID" --apiIssuer "$API_ISSUER_ID"
+
+      - name: Clean up signing files
+        if: always()
+        run: |
+          [ -n "$KEYCHAIN" ] && security delete-keychain "$KEYCHAIN" || true
+          rm -rf ~/.appstoreconnect "$RUNNER_TEMP/profile.mobileprovision" "$RUNNER_TEMP/profile.plist"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GameDay-ios-1.0.${{ github.run_number }}
+          path: out/*
+          if-no-files-found: error
